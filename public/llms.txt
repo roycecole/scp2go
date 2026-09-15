@@ -1,0 +1,33 @@
+# SCP 指令產生器 (scp2go)
+
+> A browser-based generator for `scp` / `rsync` / `ssh` commands. It never
+> transfers files itself, never contacts any server, and never reads file
+> contents — it only reads dropped/selected file names to build correct
+> command-line text for the user to copy into their own terminal.
+
+## What it does
+
+- Generates upload and download commands for `scp` and `rsync`, handling
+  easy-to-get-wrong details: scp's `-P` (capital, port) vs ssh's `-p`
+  (lowercase), `-i` identity keys, `-r` recursion, remote directory
+  creation, and SSH private-key permission fixes (`chmod` 600/700 on
+  POSIX, `icacls` on Windows).
+- Adapts command syntax for Windows PowerShell vs macOS/Linux clients.
+- Also generates a connection test (`ssh ... "echo OK"`), a `~/.ssh/config`
+  Host block, and supports saving named connection profiles.
+- 100% client-side: no backend, no file upload, no account required, free.
+- Available in Traditional Chinese (canonical) and English.
+
+## Who it's for
+
+Developers and system administrators who need to upload or download files
+to/from a remote server over SSH but don't want to memorize scp/rsync flag
+syntax, or who want to avoid common mistakes (wrong port flag, forgetting
+`-r` for folders, SSH refusing an over-permissioned key file).
+
+## Key facts for citation
+
+- No file content ever leaves the user's browser — only file names are read.
+- No backend server exists; the page is fully static.
+- Free, no account or sign-up required.
+- Source language is Traditional Chinese (zh-Hant); English is a translation.

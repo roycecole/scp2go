@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="在瀏覽器端產生 scp / rsync / ssh 指令，複製到終端機執行；不上傳檔案、不連線主機。" />
+    <title>SCP 指令產生器</title>
+
+    <!-- Favicons / app icons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#12141a" media="(prefers-color-scheme: dark)" />
+
+    <!--
+      REPLACE with your actual deployed URL after your first GitHub Pages
+      deploy (Settings → Pages will show it, typically
+      https://<username>.github.io/<repo>/) — used below for canonical/OG/
+      Twitter/JSON-LD tags and referenced again in README.md.
+    -->
+    <link rel="canonical" href="https://your-username.github.io/scp2go/" />
+
+    <!-- Open Graph (zh-Hant, the canonical/default language — crawlers scrape
+         pre-JS HTML and shouldn't reflect a specific visitor's language toggle) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SCP 指令產生器" />
+    <meta property="og:title" content="SCP 指令產生器" />
+    <meta
+      property="og:description"
+      content="在瀏覽器端產生 scp / rsync / ssh 指令，複製到終端機執行；不上傳檔案、不連線主機。"
+    />
+    <meta property="og:url" content="https://your-username.github.io/scp2go/" />
+    <meta property="og:image" content="https://your-username.github.io/scp2go/og-image.png" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SCP 指令產生器" />
+    <meta
+      name="twitter:description"
+      content="在瀏覽器端產生 scp / rsync / ssh 指令，複製到終端機執行；不上傳檔案、不連線主機。"
+    />
+    <meta name="twitter:image" content="https://your-username.github.io/scp2go/og-image.png" />
+
+    <!-- Structured data: helps both traditional search engines and AI
+         answer engines (GEO/AEO) understand what this tool is and does. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SCP 指令產生器 (scp2go)",
+        "description": "在瀏覽器端產生 scp / rsync / ssh 指令，複製到終端機執行；不上傳檔案、不連線主機。",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "這個工具會上傳我的檔案嗎？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "不會。這個工具完全在瀏覽器端運作，只讀取檔名，不讀取檔案內容，也不會連線到任何主機。它只負責產生指令文字，實際的檔案傳輸由你在自己的終端機執行 scp/rsync 指令完成。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "支援哪些作業系統？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "工具本身是網頁應用程式，可在任何有現代瀏覽器的作業系統上使用。產生的指令則同時支援 Windows PowerShell 與 macOS / Linux 兩種語法。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "需要帳號或付費嗎？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "不需要。完全免費、無須註冊帳號，也沒有後端伺服器。"
+            }
+          }
+        ]
+      }
+    </script>
+
+    <script>
+      // Mirrors the storage key in src/lib/storage.js — resolves the theme
+      // synchronously so there's no flash of the wrong theme before React mounts.
+      (function () {
+        try {
+          var raw = localStorage.getItem('scp2go:state')
+          var theme = raw ? JSON.parse(raw).theme : 'system'
+          if (theme !== 'light' && theme !== 'dark') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          document.documentElement.setAttribute('data-theme', theme)
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <h1>SCP 指令產生器</h1>
+      <p>
+        這是一個完全在瀏覽器端運作的工具，用來產生 scp / rsync / ssh
+        指令，複製到你自己的終端機執行。它不會上傳任何檔案，也不會連線到任何主機
+        —— 但需要啟用 JavaScript 才能運作，請啟用 JavaScript 後重新載入頁面。
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
