@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildSteps,
   buildCopyAllText,
+  buildScriptFile,
   buildSshConfigEntryBlock,
   buildSshConfigExport,
   quoteLocal,
@@ -442,18 +443,88 @@ describe('known_hosts pre-trust step', () => {
     expect(steps[1].id).toBe('testConn')
   })
 
-  it('PowerShell: appends to $HOME\\.ssh\\known_hosts', () => {
+  it('PowerShell: ssh-keygen -R chained before ssh-keyscan, appends to $HOME\\.ssh\\known_hosts', () => {
     const step = stepsById(buildSteps({ ...baseState, optKnownHosts: true })).knownHosts
-    expect(step.plainText).toBe('ssh-keyscan -p 22 161.33.35.40 >> $HOME\\.ssh\\known_hosts')
+    expect(step.plainText).toBe(
+      'ssh-keygen -R 161.33.35.40 && ssh-keyscan -p 22 161.33.35.40 >> $HOME\\.ssh\\known_hosts'
+    )
   })
 
-  it('POSIX: appends to ~/.ssh/known_hosts', () => {
+  it('POSIX: ssh-keygen -R chained before ssh-keyscan, appends to ~/.ssh/known_hosts', () => {
     const step = stepsById(buildSteps({ ...baseState, optKnownHosts: true, os: 'nix' })).knownHosts
-    expect(step.plainText).toBe('ssh-keyscan -p 22 161.33.35.40 >> ~/.ssh/known_hosts')
+    expect(step.plainText).toBe('ssh-keygen -R 161.33.35.40 && ssh-keyscan -p 22 161.33.35.40 >> ~/.ssh/known_hosts')
+  })
+
+  it('ssh-keygen -R uses bracket [host]:port notation for a non-default port (matches how it is stored)', () => {
+    const step = stepsById(buildSteps({ ...baseState, optKnownHosts: true, port: '2222' })).knownHosts
+    expect(step.plainText).toContain('ssh-keygen -R [161.33.35.40]:2222 &&')
+    // ssh-keyscan's own arguments stay separate (-p PORT host) — it builds the bracket form itself for output.
+    expect(step.plainText).toContain('ssh-keyscan -p 2222 161.33.35.40 >>')
+  })
+
+  it('ssh-keygen -R uses the bare host on the default port 22', () => {
+    const step = stepsById(buildSteps({ ...baseState, optKnownHosts: true, port: '22' })).knownHosts
+    expect(step.plainText).toContain('ssh-keygen -R 161.33.35.40 &&')
   })
 
   it('available in download mode too', () => {
     expect(buildSteps({ ...baseState, direction: 'download', optKnownHosts: true }).find((s) => s.id === 'knownHosts')).toBeDefined()
+  })
+})
+
+describe('interactive SSH login step', () => {
+  it('absent by default', () => {
+    expect(buildSteps(baseState).find((s) => s.id === 'sshLogin')).toBeUndefined()
+  })
+
+  it('is a bare ssh command with no trailing string/command', () => {
+    const step = stepsById(buildSteps({ ...baseState, optSshLogin: true })).sshLogin
+    expect(step.plainText).toBe('ssh -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40')
+    expect(step.tokens.some((t) => t.type === 'string')).toBe(false)
+  })
+
+  it('is ordered after testConn (both are pre-flight, no-file-op steps)', () => {
+    const steps = buildSteps({ ...baseState, optTestConn: true, optSshLogin: true })
+    expect(steps.map((s) => s.id)).toEqual(['testConn', 'sshLogin', 'mkdir', 'upload', 'chmod'])
+  })
+
+  it('available in download mode too', () => {
+    expect(buildSteps({ ...baseState, direction: 'download', optSshLogin: true }).find((s) => s.id === 'sshLogin')).toBeDefined()
+  })
+})
+
+describe('rsync --partial', () => {
+  it('absent by default', () => {
+    expect(stepsById(buildSteps({ ...baseState, transport: 'rsync' })).upload.plainText).not.toContain('--partial')
+  })
+  it('present when toggled, right after -avz', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', optPartial: true })).upload
+    expect(step.plainText).toContain('rsync -avz --partial -e ')
+  })
+  it('has no effect on scp', () => {
+    expect(stepsById(buildSteps({ ...baseState, optPartial: true })).upload.plainText).not.toContain('--partial')
+  })
+})
+
+describe('buildScriptFile', () => {
+  it('POSIX: bash shebang + set -euo pipefail preamble, then the same content as buildCopyAllText', () => {
+    const steps = buildSteps({ ...baseState, os: 'nix' })
+    const script = buildScriptFile(steps, 'nix')
+    expect(script.startsWith('#!/usr/bin/env bash\nset -euo pipefail\n\n')).toBe(true)
+    expect(script).toContain(buildCopyAllText(steps))
+  })
+
+  it('PowerShell: $ErrorActionPreference preamble, then the same content as buildCopyAllText', () => {
+    const steps = buildSteps(baseState)
+    const script = buildScriptFile(steps, 'win')
+    expect(script.startsWith("# scp2go\n$ErrorActionPreference = 'Stop'\n\n")).toBe(true)
+    expect(script).toContain(buildCopyAllText(steps))
+  })
+
+  it('accepts a getLabel override, same as buildCopyAllText', () => {
+    const steps = buildSteps(baseState)
+    const script = buildScriptFile(steps, 'win', (s) => `EN:${s.id}`)
+    expect(script).toContain('# EN:upload')
   })
 })
 

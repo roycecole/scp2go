@@ -197,28 +197,49 @@ function tokensToPlainText(tokens) {
  *   host: string, optMkdir: boolean, optRecursive: boolean, optChmod: boolean,
  *   optTestConn: boolean, optDryRun: boolean, optIcaclsFix: boolean,
  *   optDelete: boolean, optProgress: boolean, optKnownHosts: boolean,
- *   excludePatterns: string,
+ *   optPartial: boolean, optSshLogin: boolean, excludePatterns: string,
  * }} StepContext
  */
 
 /**
- * Pre-trusts the host's SSH key via ssh-keyscan, shown first (before the
- * connection test itself) when enabled, so neither it nor any later ssh-based
- * step hits the interactive "unknown host key" prompt. Available in both
- * directions since it only concerns the host, not the transfer direction.
+ * The identity known_hosts stores/matches a host under: bare hostname on the
+ * default port, or `[host]:port` once the port is non-standard — ssh-keyscan
+ * builds this format for its *output* automatically, but ssh-keygen -R needs
+ * it handed to it explicitly as the argument to match the right line.
+ * @param {string} host
+ * @param {string} port
+ */
+function knownHostsRef(host, port) {
+  return port === '22' ? host : `[${host}]:${port}`
+}
+
+/**
+ * Prepares known_hosts for this host, shown first (before the connection
+ * test itself) when enabled, so no later ssh-based step hits an interactive
+ * prompt. Two concerns chained together: drop any stale entry first — a
+ * rebuilt cloud VM reusing the same IP gets a *new* host key, and ssh refuses
+ * to connect outright (not just prompt) while the old one is still on file —
+ * then add the current key. Available in both directions since it only
+ * concerns the host, not the transfer direction.
  * @param {StepContext} ctx
  * @returns {Step | null}
  */
 function buildKnownHostsStep(ctx) {
   if (!ctx.optKnownHosts) return null
   const tokens = []
+  const knownHostsPath = ctx.os === 'win' ? '$HOME\\.ssh\\known_hosts' : '~/.ssh/known_hosts'
+
+  push(tokens, 'cmd', 'ssh-keygen')
+  push(tokens, 'flag', '-R')
+  push(tokens, 'value', quoteLocal(knownHostsRef(ctx.host, ctx.port), ctx.os))
+  push(tokens, 'operator', '&&')
   push(tokens, 'cmd', 'ssh-keyscan')
   push(tokens, 'flag', '-p')
   push(tokens, 'value', ctx.port)
   push(tokens, 'value', quoteLocal(ctx.host, ctx.os))
   push(tokens, 'operator', '>>')
-  const dest = ctx.os === 'win' ? '$HOME\\.ssh\\known_hosts' : '~/.ssh/known_hosts'
-  push(tokens, 'value', dest)
+  push(tokens, 'value', knownHostsPath)
+
   return { id: 'knownHosts', label: '信任主機金鑰', tokens, plainText: tokensToPlainText(tokens) }
 }
 
@@ -235,6 +256,21 @@ function buildTestConnStep(ctx) {
   pushSshTarget(tokens, ctx)
   push(tokens, 'string', '"echo OK"')
   return { id: 'testConn', label: '連線測試', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
+ * A bare, interactive `ssh user@host` login — no trailing command, so it
+ * drops the user into a remote shell instead of running non-interactively
+ * and returning like testConn does. Available in both directions.
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildSshLoginStep(ctx) {
+  if (!ctx.optSshLogin) return null
+  const tokens = []
+  push(tokens, 'cmd', 'ssh')
+  pushSshTarget(tokens, ctx)
+  return { id: 'sshLogin', label: '互動式登入', tokens, plainText: tokensToPlainText(tokens) }
 }
 
 /**
@@ -298,6 +334,7 @@ function buildTransferStep(ctx) {
     optDryRun,
     optDelete,
     optProgress,
+    optPartial,
     excludePatterns,
   } = ctx
   const tokens = []
@@ -315,6 +352,7 @@ function buildTransferStep(ctx) {
   } else {
     push(tokens, 'cmd', 'rsync')
     push(tokens, 'flag', '-avz')
+    if (optPartial) push(tokens, 'flag', '--partial')
     if (optDelete) push(tokens, 'flag', '--delete')
     for (const pattern of parseExcludePatterns(excludePatterns)) {
       push(tokens, 'flag', `--exclude=${quoteExcludePattern(pattern, os)}`)
@@ -421,6 +459,8 @@ export function buildSteps(state) {
     optDelete: Boolean(state.optDelete),
     optProgress: Boolean(state.optProgress),
     optKnownHosts: Boolean(state.optKnownHosts),
+    optPartial: Boolean(state.optPartial),
+    optSshLogin: Boolean(state.optSshLogin),
     excludePatterns: state.excludePatterns || '',
   }
 
@@ -429,6 +469,8 @@ export function buildSteps(state) {
   if (knownHosts) steps.push(knownHosts)
   const testConn = buildTestConnStep(ctx)
   if (testConn) steps.push(testConn)
+  const sshLogin = buildSshLoginStep(ctx)
+  if (sshLogin) steps.push(sshLogin)
   const mkdir = buildMkdirStep(ctx)
   if (mkdir) steps.push(mkdir)
   steps.push(buildTransferStep(ctx))
@@ -452,6 +494,20 @@ export function buildSteps(state) {
  */
 export function buildCopyAllText(steps, getLabel = (s) => s.label) {
   return steps.map((s) => `# ${getLabel(s)}\n${s.plainText}`).join('\n\n')
+}
+
+/**
+ * Wraps buildCopyAllText's output in an OS-appropriate script preamble
+ * (shebang + fail-fast for POSIX, fail-fast preference for PowerShell) so
+ * it's directly runnable as a saved .sh/.ps1 file, not just paste-able.
+ * @param {Step[]} steps
+ * @param {ClientOs} os
+ * @param {(step: Step) => string} [getLabel]
+ * @returns {string}
+ */
+export function buildScriptFile(steps, os, getLabel = (s) => s.label) {
+  const header = os === 'win' ? "# scp2go\n$ErrorActionPreference = 'Stop'\n\n" : '#!/usr/bin/env bash\nset -euo pipefail\n\n'
+  return `${header}${buildCopyAllText(steps, getLabel)}\n`
 }
 
 /**

@@ -56,6 +56,8 @@ function sanitizeProfileField(field, value) {
     case 'optDelete':
     case 'optProgress':
     case 'optKnownHosts':
+    case 'optPartial':
+    case 'optSshLogin':
       return bool(value, /** @type {any} */ (initialState)[field])
     default:
       return str(/** @type {any} */ (value), /** @type {any} */ (initialState)[field])
@@ -125,6 +127,8 @@ function sanitize(raw) {
     optDelete: bool(raw.optDelete, initialState.optDelete),
     optProgress: bool(raw.optProgress, initialState.optProgress),
     optKnownHosts: bool(raw.optKnownHosts, initialState.optKnownHosts),
+    optPartial: bool(raw.optPartial, initialState.optPartial),
+    optSshLogin: bool(raw.optSshLogin, initialState.optSshLogin),
     excludePatterns: str(raw.excludePatterns, initialState.excludePatterns),
     configAlias: str(raw.configAlias, initialState.configAlias),
     theme: THEMES.has(raw.theme) ? raw.theme : initialState.theme,

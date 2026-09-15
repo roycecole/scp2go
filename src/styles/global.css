@@ -565,6 +565,12 @@ img {
   flex-wrap: wrap;
 }
 
+.terminal__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .terminal__title {
   margin: 0;
   font-size: 0.9375rem;

@@ -29,6 +29,8 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
   'optDelete',
   'optProgress',
   'optKnownHosts',
+  'optPartial',
+  'optSshLogin',
   'excludePatterns',
   'configAlias',
 ])
@@ -54,6 +56,8 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {boolean} optDelete
  * @property {boolean} optProgress
  * @property {boolean} optKnownHosts
+ * @property {boolean} optPartial
+ * @property {boolean} optSshLogin
  * @property {string} excludePatterns
  * @property {string} configAlias
  * @property {'system'|'light'|'dark'} theme
@@ -83,6 +87,8 @@ export const initialState = {
   optDelete: false,
   optProgress: false,
   optKnownHosts: false,
+  optPartial: false,
+  optSshLogin: false,
   excludePatterns: '',
   configAlias: '',
   theme: 'system',
@@ -101,6 +107,8 @@ const TOGGLE_OPTIONS = new Set([
   'optDelete',
   'optProgress',
   'optKnownHosts',
+  'optPartial',
+  'optSshLogin',
 ])
 const THEMES = new Set(['system', 'light', 'dark'])
 const LANGS = new Set(['zh-Hant', 'en'])

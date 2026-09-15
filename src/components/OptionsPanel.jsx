@@ -18,6 +18,7 @@ export function OptionsPanel({ state, dispatch }) {
   const lang = state.lang
   const isDownload = state.direction === 'download'
   const showRsyncWarning = state.transport === 'rsync' && state.os === 'win'
+  const showDeleteWarning = state.transport === 'rsync' && state.optDelete && !state.optDryRun
 
   return (
     <fieldset className="panel">
@@ -72,6 +73,13 @@ export function OptionsPanel({ state, dispatch }) {
           description={t(lang, 'options.testConn.desc')}
         />
         <ToggleSwitch
+          id="optSshLogin"
+          checked={state.optSshLogin}
+          onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optSshLogin' })}
+          label={t(lang, 'options.sshLogin.label')}
+          description={t(lang, 'options.sshLogin.desc')}
+        />
+        <ToggleSwitch
           id="optKnownHosts"
           checked={state.optKnownHosts}
           onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optKnownHosts' })}
@@ -80,6 +88,13 @@ export function OptionsPanel({ state, dispatch }) {
         />
         {state.transport === 'rsync' ? (
           <>
+            <ToggleSwitch
+              id="optPartial"
+              checked={state.optPartial}
+              onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optPartial' })}
+              label={t(lang, 'options.partial.label')}
+              description={t(lang, 'options.partial.desc')}
+            />
             <ToggleSwitch
               id="optDelete"
               checked={state.optDelete}
@@ -161,6 +176,13 @@ export function OptionsPanel({ state, dispatch }) {
         <p className="warning-banner" role="alert">
           <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
           {t(lang, 'options.rsyncWarning')}
+        </p>
+      ) : null}
+
+      {showDeleteWarning ? (
+        <p className="warning-banner" role="alert">
+          <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
+          {t(lang, 'options.deleteWarning')}
         </p>
       ) : null}
     </fieldset>
