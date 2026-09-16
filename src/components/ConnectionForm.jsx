@@ -1,9 +1,15 @@
 import { AnchorLink } from './AnchorLink.jsx'
+import { isValidHost, isValidPort, isValidUser, isValidJumpHost } from '../lib/validators.js'
 import { t } from '../lib/i18n.js'
 
 export function ConnectionForm({ state, dispatch }) {
   const setField = (field) => (e) => dispatch({ type: 'SET_FIELD', field, value: e.target.value })
   const lang = state.lang
+
+  const hostOk = isValidHost(state.host)
+  const portOk = isValidPort(state.port)
+  const userOk = isValidUser(state.user)
+  const jumpOk = isValidJumpHost(state.jumpHost)
 
   return (
     <fieldset className="panel">
@@ -23,7 +29,13 @@ export function ConnectionForm({ state, dispatch }) {
             value={state.host}
             onChange={setField('host')}
             autoComplete="off"
+            aria-invalid={!hostOk}
           />
+          {!hostOk ? (
+            <span className="field__error" role="alert">
+              {t(lang, 'validate.host')}
+            </span>
+          ) : null}
         </div>
         <div className="field">
           <label className="field__label" htmlFor="port">
@@ -37,13 +49,32 @@ export function ConnectionForm({ state, dispatch }) {
             value={state.port}
             onChange={setField('port')}
             autoComplete="off"
+            aria-invalid={!portOk}
           />
+          {!portOk ? (
+            <span className="field__error" role="alert">
+              {t(lang, 'validate.port')}
+            </span>
+          ) : null}
         </div>
         <div className="field">
           <label className="field__label" htmlFor="user">
             {t(lang, 'connection.user.label')}
           </label>
-          <input id="user" type="text" placeholder="ubuntu" value={state.user} onChange={setField('user')} autoComplete="off" />
+          <input
+            id="user"
+            type="text"
+            placeholder="ubuntu"
+            value={state.user}
+            onChange={setField('user')}
+            autoComplete="off"
+            aria-invalid={!userOk}
+          />
+          {!userOk ? (
+            <span className="field__error" role="alert">
+              {t(lang, 'validate.user')}
+            </span>
+          ) : null}
         </div>
         <div className="field">
           <label className="field__label" htmlFor="key">
@@ -72,7 +103,13 @@ export function ConnectionForm({ state, dispatch }) {
             value={state.jumpHost}
             onChange={setField('jumpHost')}
             autoComplete="off"
+            aria-invalid={!jumpOk}
           />
+          {!jumpOk ? (
+            <span className="field__error" role="alert">
+              {t(lang, 'validate.jumpHost')}
+            </span>
+          ) : null}
         </div>
       </div>
     </fieldset>

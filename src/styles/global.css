@@ -1028,6 +1028,252 @@ img {
   margin-top: 0.75rem;
 }
 
+/* Transfer flow visualizer */
+
+.viz-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  padding: 0.75rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  cursor: pointer;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+}
+
+.viz-toggle:hover {
+  color: var(--color-primary-hover);
+}
+
+.viz-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(420px, 100%);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 2rem;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.25s ease,
+    visibility 0.25s;
+}
+
+.viz-drawer--open {
+  transform: translateX(0);
+  visibility: visible;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.25);
+}
+
+.viz-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.viz-drawer__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.viz-drawer__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.viz-drawer__close:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.viz-drawer__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.viz-scene {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.25rem 0 0.5rem;
+  padding: 1.5rem 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.viz-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 60px;
+  max-width: 40%;
+  text-align: center;
+}
+
+.viz-node__icon {
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.viz-node__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.viz-node__sub {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.viz-lane {
+  position: relative;
+  flex: 1;
+  min-width: 44px;
+  height: 2px;
+  background: var(--color-border);
+}
+
+.viz-lane__badge {
+  position: absolute;
+  top: -1.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.viz-packet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  margin-top: -0.5em;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  opacity: 0;
+  animation: viz-packet-travel 2s linear infinite;
+}
+
+.viz-scene--download .viz-packet {
+  animation-direction: reverse;
+}
+
+@keyframes viz-packet-travel {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 0.9em);
+    opacity: 0;
+  }
+}
+
+.viz-caption {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.viz-steps__title {
+  margin: 1.25rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.viz-steps {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.viz-step {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: 0.8125rem;
+  animation-name: viz-step-pulse;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.viz-step__icon {
+  width: 1rem;
+  color: var(--color-text-muted);
+}
+
+@keyframes viz-step-pulse {
+  0%,
+  12% {
+    border-color: var(--color-primary);
+    background: var(--color-surface-alt);
+  }
+  12.01%,
+  100% {
+    border-color: var(--color-border);
+    background: var(--color-bg);
+  }
+}
+
+.viz-idle {
+  margin: 1.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .viz-drawer {
+    width: 100%;
+    border-left: none;
+  }
+}
+
 /* Responsive */
 
 @media (max-width: 640px) {

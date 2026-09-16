@@ -12,6 +12,7 @@ import { OptionsPanel } from './components/OptionsPanel.jsx'
 import { DeploySection } from './components/DeploySection.jsx'
 import { OutputPanel } from './components/OutputPanel.jsx'
 import { SshConfigBlock } from './components/SshConfigBlock.jsx'
+import { TransferVisualizer } from './components/TransferVisualizer.jsx'
 import { t } from './lib/i18n.js'
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
         <OutputPanel state={state} />
         <SshConfigBlock state={state} dispatch={dispatch} />
       </main>
+      <TransferVisualizer state={state} />
     </div>
   )
 }
