@@ -190,6 +190,9 @@ export function reducer(state, action) {
     case 'REMOVE_FILE':
       return { ...state, files: state.files.filter((f) => f.id !== action.id) }
 
+    case 'CLEAR_FILES':
+      return state.files.length === 0 ? state : { ...state, files: [] }
+
     case 'APPLY_PRESET': {
       const patch = action.preset === 'sshkey' ? applySshKeyPreset(state) : applyOraclePreset()
       return { ...state, ...patch }

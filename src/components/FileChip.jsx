@@ -1,11 +1,15 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFolder, faFile, faXmark, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
-import { formatFileMeta } from '../lib/fileFormat.js'
+import { formatFileSize, formatFileDate } from '../lib/fileFormat.js'
 import { isSensitiveFilename } from '../lib/sensitiveFiles.js'
 import { t } from '../lib/i18n.js'
 
 export function FileChip({ file, lang, onRemove }) {
-  const meta = formatFileMeta(file.size, file.lastModified, lang)
+  const sizeText = formatFileSize(file.size)
+  const dateText = formatFileDate(file.lastModified, lang)
+  const meta = [sizeText && `${t(lang, 'chip.size')} ${sizeText}`, dateText && `${t(lang, 'chip.modified')} ${dateText}`]
+    .filter(Boolean)
+    .join(' · ')
   const sensitive = !file.isDir && isSensitiveFilename(file.name)
 
   return (

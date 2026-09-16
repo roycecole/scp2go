@@ -77,6 +77,30 @@ describe('REMOVE_FILE', () => {
   })
 })
 
+describe('CLEAR_FILES', () => {
+  it('empties the file list in one step', () => {
+    let state = reducer(initialState, {
+      type: 'ADD_FILES',
+      files: [
+        { name: 'a', isDir: false },
+        { name: 'b', isDir: true },
+      ],
+    })
+    state = reducer(state, { type: 'CLEAR_FILES' })
+    expect(state.files).toEqual([])
+  })
+
+  it('does not touch optRecursive, matching REMOVE_FILE’s one-directional behavior', () => {
+    let state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'dir1', isDir: true }] })
+    state = reducer(state, { type: 'CLEAR_FILES' })
+    expect(state.optRecursive).toBe(true)
+  })
+
+  it('returns the same state reference when the list is already empty (no-op)', () => {
+    expect(reducer(initialState, { type: 'CLEAR_FILES' })).toBe(initialState)
+  })
+})
+
 describe('APPLY_PRESET', () => {
   it('oracle preset sets user/port/dest and enables known-hosts + test-connection', () => {
     const state = reducer({ ...initialState, user: 'x', port: '2222', dest: '/tmp' }, { type: 'APPLY_PRESET', preset: 'oracle' })

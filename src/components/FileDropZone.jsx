@@ -57,6 +57,7 @@ export function FileDropZone({ lang, onAddFiles }) {
       <button
         type="button"
         className={`dropzone${dragOver ? ' dropzone--dragover' : ''}`}
+        accessKey="u"
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault()

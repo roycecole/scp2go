@@ -44,11 +44,11 @@ export function OutputPanel({ state }) {
         </h2>
         {steps.length > 0 ? (
           <div className="terminal__header-actions">
-            <button type="button" className="btn btn--primary btn--sm" onClick={handleCopyAll}>
+            <button type="button" className="btn btn--primary btn--sm" accessKey="c" onClick={handleCopyAll}>
               <FontAwesomeIcon icon={copiedAll ? faCheck : faCopy} aria-hidden="true" />
               {copiedAll ? t(lang, 'output.copyAll.done') : t(lang, 'output.copyAll')}
             </button>
-            <button type="button" className="btn btn--sm" onClick={handleExportScript}>
+            <button type="button" className="btn btn--sm" accessKey="e" onClick={handleExportScript}>
               <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
               {t(lang, 'output.exportScript')}
             </button>

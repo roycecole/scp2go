@@ -3,6 +3,7 @@ import { reducer, initialState } from './state/reducer.js'
 import { loadState, saveState } from './lib/storage.js'
 import { useTheme } from './hooks/useTheme.js'
 import { Header } from './components/Header.jsx'
+import { AccessKeyHelp } from './components/AccessKeyHelp.jsx'
 import { ConnectionForm } from './components/ConnectionForm.jsx'
 import { PresetBar } from './components/PresetBar.jsx'
 import { ProfileBar } from './components/ProfileBar.jsx'
@@ -38,6 +39,7 @@ export default function App() {
         onLangChange={(lang) => dispatch({ type: 'SET_LANG', lang })}
       />
       <main className="app__main">
+        <AccessKeyHelp lang={state.lang} />
         <PresetBar state={state} dispatch={dispatch} />
         <ProfileBar state={state} dispatch={dispatch} />
         <ConnectionForm state={state} dispatch={dispatch} />

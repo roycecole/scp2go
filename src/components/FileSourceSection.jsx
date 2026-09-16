@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faTrashCan } from '@fortawesome/free-solid-svg-icons'
 import { FileDropZone } from './FileDropZone.jsx'
 import { RemoteFileEntry } from './RemoteFileEntry.jsx'
 import { FileChip } from './FileChip.jsx'
@@ -51,11 +53,24 @@ export function FileSourceSection({ state, dispatch }) {
       </div>
 
       {state.files.length > 0 ? (
-        <ul className="chip-list">
-          {state.files.map((file) => (
-            <FileChip key={file.id} file={file} lang={lang} onRemove={handleRemove} />
-          ))}
-        </ul>
+        <>
+          <div className="chip-list__header">
+            <button
+              type="button"
+              className="btn btn--sm"
+              accessKey="x"
+              onClick={() => dispatch({ type: 'CLEAR_FILES' })}
+            >
+              <FontAwesomeIcon icon={faTrashCan} aria-hidden="true" />
+              {t(lang, 'fileSource.clearAll')}
+            </button>
+          </div>
+          <ul className="chip-list">
+            {state.files.map((file) => (
+              <FileChip key={file.id} file={file} lang={lang} onRemove={handleRemove} />
+            ))}
+          </ul>
+        </>
       ) : null}
     </fieldset>
   )

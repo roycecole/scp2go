@@ -32,15 +32,3 @@ export function formatFileDate(timestamp, lang) {
     return ''
   }
 }
-
-/**
- * Combines size and date into one "size · date" meta string, using
- * whichever pieces are actually available (e.g. a folder has neither).
- * @param {number} [size]
- * @param {number} [lastModified]
- * @param {string} [lang]
- * @returns {string}
- */
-export function formatFileMeta(size, lastModified, lang) {
-  return [formatFileSize(size), formatFileDate(lastModified, lang)].filter(Boolean).join(' · ')
-}

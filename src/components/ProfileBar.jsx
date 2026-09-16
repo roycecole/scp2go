@@ -87,7 +87,7 @@ export function ProfileBar({ state, dispatch }) {
         }}
         autoComplete="off"
       />
-      <button type="button" className="btn btn--sm" onClick={handleSave} disabled={!newName.trim()}>
+      <button type="button" className="btn btn--sm" accessKey="s" onClick={handleSave} disabled={!newName.trim()}>
         {t(lang, 'profiles.save')}
       </button>
       <button type="button" className="btn btn--sm" onClick={handleExport} disabled={state.profiles.length === 0}>

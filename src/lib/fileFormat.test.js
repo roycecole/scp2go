@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFileSize, formatFileDate, formatFileMeta } from './fileFormat.js'
+import { formatFileSize, formatFileDate } from './fileFormat.js'
 
 describe('formatFileSize', () => {
   it('formats bytes under 1024 as plain bytes', () => {
@@ -35,20 +35,5 @@ describe('formatFileDate', () => {
   it('returns "" for invalid input', () => {
     expect(formatFileDate(undefined, 'en')).toBe('')
     expect(formatFileDate(NaN, 'en')).toBe('')
-  })
-})
-
-describe('formatFileMeta', () => {
-  it('joins size and date with a middle dot when both are present', () => {
-    const ts = Date.UTC(2026, 8, 15, 14, 30)
-    const meta = formatFileMeta(2048, ts, 'en')
-    expect(meta).toContain('2.0 KB')
-    expect(meta).toContain(' · ')
-  })
-  it('falls back to just size when there is no date (e.g. a folder has neither)', () => {
-    expect(formatFileMeta(2048, undefined, 'en')).toBe('2.0 KB')
-  })
-  it('is empty when neither is available', () => {
-    expect(formatFileMeta(undefined, undefined, 'en')).toBe('')
   })
 })
