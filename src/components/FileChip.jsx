@@ -1,12 +1,28 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faFolder, faFile, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faFolder, faFile, faXmark, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
+import { formatFileMeta } from '../lib/fileFormat.js'
+import { isSensitiveFilename } from '../lib/sensitiveFiles.js'
 import { t } from '../lib/i18n.js'
 
 export function FileChip({ file, lang, onRemove }) {
+  const meta = formatFileMeta(file.size, file.lastModified, lang)
+  const sensitive = !file.isDir && isSensitiveFilename(file.name)
+
   return (
-    <li className="chip">
-      <FontAwesomeIcon icon={file.isDir ? faFolder : faFile} aria-hidden="true" />
-      <span className="chip__name">{file.name}</span>
+    <li className={`chip${sensitive ? ' chip--sensitive' : ''}`}>
+      <FontAwesomeIcon icon={file.isDir ? faFolder : faFile} className="chip__icon" aria-hidden="true" />
+      <span className="chip__info">
+        <span className="chip__name">{file.name}</span>
+        {meta ? <span className="chip__meta">{meta}</span> : null}
+      </span>
+      {sensitive ? (
+        <FontAwesomeIcon
+          icon={faTriangleExclamation}
+          className="chip__warning"
+          aria-label={t(lang, 'chip.sensitiveWarning')}
+          title={t(lang, 'chip.sensitiveWarning')}
+        />
+      ) : null}
       <button
         type="button"
         className="chip__remove"

@@ -5,6 +5,7 @@ import {
   buildScriptFile,
   buildSshConfigEntryBlock,
   buildSshConfigExport,
+  parseSshConfigText,
   quoteLocal,
   quoteNested,
   quoteSshConfig,
@@ -623,5 +624,148 @@ describe('buildSshConfigEntryBlock / buildSshConfigExport', () => {
 
   it('buildSshConfigExport of an empty list is an empty string', () => {
     expect(buildSshConfigExport([])).toBe('')
+  })
+})
+
+describe('parseSshConfigText', () => {
+  it('parses a single Host block with all fields', () => {
+    const text = [
+      'Host myserver',
+      '  HostName 161.33.35.40',
+      '  Port 2222',
+      '  User ubuntu',
+      '  IdentityFile C:\\Users\\you\\.ssh\\id_ed25519',
+    ].join('\n')
+    expect(parseSshConfigText(text)).toEqual([
+      { alias: 'myserver', host: '161.33.35.40', port: '2222', user: 'ubuntu', key: 'C:\\Users\\you\\.ssh\\id_ed25519' },
+    ])
+  })
+
+  it('parses multiple Host blocks', () => {
+    const text = ['Host a', '  HostName 1.1.1.1', '', 'Host b', '  HostName 2.2.2.2'].join('\n')
+    const parsed = parseSshConfigText(text)
+    expect(parsed).toHaveLength(2)
+    expect(parsed[0]).toMatchObject({ alias: 'a', host: '1.1.1.1' })
+    expect(parsed[1]).toMatchObject({ alias: 'b', host: '2.2.2.2' })
+  })
+
+  it('falls back to the alias as the host when HostName is missing (matches real ssh behavior)', () => {
+    expect(parseSshConfigText('Host plainhost')).toEqual([{ alias: 'plainhost', host: 'plainhost', port: '', user: '', key: '' }])
+  })
+
+  it('skips a wildcard-only Host line (describes a pattern, not one connection)', () => {
+    expect(parseSshConfigText('Host *\n  User global-default')).toEqual([])
+    expect(parseSshConfigText('Host web-*\n  User deploy')).toEqual([])
+  })
+
+  it('skips a Host line naming multiple patterns', () => {
+    expect(parseSshConfigText('Host foo bar\n  HostName 1.2.3.4')).toEqual([])
+  })
+
+  it('ignores comments and blank lines', () => {
+    const text = ['# a comment', '', 'Host a', '  # inline comment style not supported, but a full-line comment is', '  HostName 1.1.1.1'].join(
+      '\n'
+    )
+    expect(parseSshConfigText(text)).toEqual([{ alias: 'a', host: '1.1.1.1', port: '', user: '', key: '' }])
+  })
+
+  it('matches directive names case-insensitively', () => {
+    const text = ['HOST a', '  hostname 1.1.1.1', '  PORT 2200', '  UsEr bob'].join('\n')
+    expect(parseSshConfigText(text)).toEqual([{ alias: 'a', host: '1.1.1.1', port: '2200', user: 'bob', key: '' }])
+  })
+
+  it('unquotes a quoted value', () => {
+    const text = 'Host a\n  HostName "my host.example.com"'
+    expect(parseSshConfigText(text)[0].host).toBe('my host.example.com')
+  })
+
+  it('ignores unrecognized directives without breaking parsing of the rest of the block', () => {
+    const text = ['Host a', '  ServerAliveInterval 60', '  HostName 1.1.1.1'].join('\n')
+    expect(parseSshConfigText(text)).toEqual([{ alias: 'a', host: '1.1.1.1', port: '', user: '', key: '' }])
+  })
+
+  it('returns [] for empty/whitespace-only input', () => {
+    expect(parseSshConfigText('')).toEqual([])
+    expect(parseSshConfigText('   \n  \n')).toEqual([])
+    expect(parseSshConfigText(undefined)).toEqual([])
+  })
+
+  it('round-trips through buildSshConfigExport for a simple case', () => {
+    const original = [{ id: 'e1', alias: 'myserver', host: '1.2.3.4', port: '22', user: 'ubuntu', key: '' }]
+    const exported = buildSshConfigExport(original)
+    const reparsed = parseSshConfigText(exported)
+    expect(reparsed).toEqual([{ alias: 'myserver', host: '1.2.3.4', port: '22', user: 'ubuntu', key: '' }])
+  })
+})
+
+describe('rsync --checksum', () => {
+  it('absent by default', () => {
+    expect(stepsById(buildSteps({ ...baseState, transport: 'rsync' })).upload.plainText).not.toContain('--checksum')
+  })
+  it('present when toggled, after --partial', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', optPartial: true, optChecksum: true })).upload
+    expect(step.plainText).toContain('rsync -avz --partial --checksum -e ')
+  })
+  it('has no effect on scp', () => {
+    expect(stepsById(buildSteps({ ...baseState, optChecksum: true })).upload.plainText).not.toContain('--checksum')
+  })
+})
+
+describe('SSH Agent Forwarding (-A)', () => {
+  it('absent by default even with sshLogin on', () => {
+    expect(stepsById(buildSteps({ ...baseState, optSshLogin: true })).sshLogin.plainText).not.toContain('-A')
+  })
+  it('present on the login step when both toggles are on', () => {
+    const step = stepsById(buildSteps({ ...baseState, optSshLogin: true, optAgentForward: true })).sshLogin
+    expect(step.plainText).toBe('ssh -A -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40')
+  })
+  it('has no effect without sshLogin (no step exists to attach it to)', () => {
+    expect(buildSteps({ ...baseState, optAgentForward: true }).find((s) => s.id === 'sshLogin')).toBeUndefined()
+  })
+})
+
+describe('build / restart deployment steps', () => {
+  it('absent by default', () => {
+    const steps = buildSteps(baseState)
+    expect(steps.find((s) => s.id === 'build')).toBeUndefined()
+    expect(steps.find((s) => s.id === 'restart')).toBeUndefined()
+  })
+
+  it('build step is a verbatim passthrough of the user command, first in the list', () => {
+    const steps = buildSteps({ ...baseState, buildCommand: '  npm run build  ' })
+    expect(steps[0]).toMatchObject({ id: 'build', plainText: 'npm run build' })
+  })
+
+  it('restart step wraps the command in an ssh call, last in the list', () => {
+    const steps = buildSteps({ ...baseState, restartCommand: 'sudo systemctl restart myapp' })
+    const last = steps[steps.length - 1]
+    expect(last.id).toBe('restart')
+    expect(last.plainText).toBe(
+      'ssh -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40 "sudo systemctl restart myapp"'
+    )
+  })
+
+  it('escapes an embedded double quote in the restart command so it cannot break out of the outer string', () => {
+    const step = stepsById(buildSteps({ ...baseState, restartCommand: 'echo "hello"' })).restart
+    expect(step.plainText).toContain('"echo \\"hello\\""')
+  })
+
+  it('both together: build first, restart last, existing steps in between', () => {
+    const steps = buildSteps({ ...baseState, buildCommand: 'npm run build', restartCommand: 'pm2 restart app' })
+    expect(steps[0].id).toBe('build')
+    expect(steps[steps.length - 1].id).toBe('restart')
+    expect(steps.map((s) => s.id)).toEqual(['build', 'mkdir', 'upload', 'chmod', 'restart'])
+  })
+
+  it('blank/whitespace-only commands produce no step', () => {
+    const steps = buildSteps({ ...baseState, buildCommand: '   ', restartCommand: '' })
+    expect(steps.find((s) => s.id === 'build')).toBeUndefined()
+    expect(steps.find((s) => s.id === 'restart')).toBeUndefined()
+  })
+
+  it('restart step is available in download mode too', () => {
+    expect(
+      buildSteps({ ...baseState, direction: 'download', restartCommand: 'echo done' }).find((s) => s.id === 'restart')
+    ).toBeDefined()
   })
 })

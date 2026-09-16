@@ -8,6 +8,7 @@ import { PresetBar } from './components/PresetBar.jsx'
 import { ProfileBar } from './components/ProfileBar.jsx'
 import { FileSourceSection } from './components/FileSourceSection.jsx'
 import { OptionsPanel } from './components/OptionsPanel.jsx'
+import { DeploySection } from './components/DeploySection.jsx'
 import { OutputPanel } from './components/OutputPanel.jsx'
 import { SshConfigBlock } from './components/SshConfigBlock.jsx'
 import { t } from './lib/i18n.js'
@@ -42,6 +43,7 @@ export default function App() {
         <ConnectionForm state={state} dispatch={dispatch} />
         <FileSourceSection state={state} dispatch={dispatch} />
         <OptionsPanel state={state} dispatch={dispatch} />
+        <DeploySection state={state} dispatch={dispatch} />
         <OutputPanel state={state} />
         <SshConfigBlock state={state} dispatch={dispatch} />
       </main>

@@ -13,11 +13,18 @@ export function guessSshKeyFolder(os) {
 
 /**
  * FR-7.1 — Oracle Ubuntu defaults: user/port/dest set to the common values
- * for a fresh Oracle Cloud free-tier Ubuntu instance.
+ * for a fresh Oracle Cloud free-tier Ubuntu instance. user/port/dest match
+ * the form's own defaults already, so on their own they're a no-op unless
+ * those fields were previously changed — the toggles are what make this
+ * preset actually worth clicking: Oracle's free-tier VMs commonly get
+ * rebuilt while keeping the same IP, which leaves a stale, connection-
+ * blocking host key behind, and a quick reachability check before doing
+ * anything else is cheap insurance for a host you don't control the uptime
+ * of. Both are just toggles, so the user can switch either back off.
  * @returns {object} partial state patch
  */
 export function applyOraclePreset() {
-  return { user: 'ubuntu', port: '22', dest: '~/' }
+  return { user: 'ubuntu', port: '22', dest: '~/', optKnownHosts: true, optTestConn: true }
 }
 
 /**

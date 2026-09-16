@@ -42,6 +42,20 @@ describe('loadState / saveState', () => {
     expect(loadState().direction).toBe('upload')
   })
 
+  it('round-trips file size/lastModified metadata when present', () => {
+    const state = { ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, size: 2048, lastModified: 1757894400000 }] }
+    saveState(state)
+    expect(loadState().files[0]).toMatchObject({ size: 2048, lastModified: 1757894400000 })
+  })
+
+  it('drops non-numeric size/lastModified from a stored file entry rather than storing garbage', () => {
+    localStorage.setItem(
+      'scp2go:state',
+      JSON.stringify({ ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, size: 'huge' }] })
+    )
+    expect(loadState().files[0]).not.toHaveProperty('size')
+  })
+
   it('round-trips saved profiles, including their nested field validation', () => {
     const state = {
       ...initialState,

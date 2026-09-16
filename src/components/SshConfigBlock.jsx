@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCheck, faCopy, faPlus, faXmark, faFileArrowDown } from '@fortawesome/free-solid-svg-icons'
-import { buildSshConfigExport } from '../lib/commandBuilder.js'
+import { faCheck, faCopy, faPlus, faXmark, faFileArrowDown, faFileArrowUp } from '@fortawesome/free-solid-svg-icons'
+import { buildSshConfigExport, parseSshConfigText } from '../lib/commandBuilder.js'
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
 import { t } from '../lib/i18n.js'
@@ -10,12 +10,30 @@ export function SshConfigBlock({ state, dispatch }) {
   const lang = state.lang
   const entries = state.sshConfigEntries
   const [copied, setCopied] = useState(false)
+  const [importError, setImportError] = useState(false)
+  const fileInputRef = useRef(null)
   const exportText = buildSshConfigExport(entries)
 
   const handleCopy = async () => {
     const ok = await copyText(exportText)
     setCopied(ok)
     if (ok) setTimeout(() => setCopied(false), 1800)
+  }
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = parseSshConfigText(text)
+      if (parsed.length === 0) throw new Error('no valid Host blocks in file')
+      dispatch({ type: 'IMPORT_SSH_CONFIG_ENTRIES', entries: parsed })
+      setImportError(false)
+    } catch {
+      setImportError(true)
+      setTimeout(() => setImportError(false), 4000)
+    }
   }
 
   return (
@@ -91,6 +109,27 @@ export function SshConfigBlock({ state, dispatch }) {
           </button>
         </div>
       ) : null}
+
+      <div className="panel__section ssh-config__actions">
+        <button type="button" className="btn btn--sm" onClick={() => fileInputRef.current?.click()}>
+          <FontAwesomeIcon icon={faFileArrowUp} aria-hidden="true" />
+          {t(lang, 'sshConfig.import')}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="text/plain,.txt,.config"
+          className="visually-hidden"
+          onChange={handleImportFile}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+        {importError ? (
+          <span className="profile-bar__error" role="alert">
+            {t(lang, 'sshConfig.importError')}
+          </span>
+        ) : null}
+      </div>
     </section>
   )
 }

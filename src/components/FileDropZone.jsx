@@ -12,22 +12,30 @@ export function FileDropZone({ lang, onAddFiles }) {
       e.preventDefault()
       setDragOver(false)
 
+      // Folders have no File representation, so they only ever get a bare
+      // name+isDir from webkitGetAsEntry(). For actual files, prefer
+      // item.getAsFile() — it gives the real File object, with size and
+      // lastModified, that entry.name/isDirectory alone can't provide.
       const collected = []
       const items = e.dataTransfer?.items
       if (items && items.length) {
         for (const item of items) {
           if (item.kind !== 'file') continue
           const entry = typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null
-          if (entry) {
-            collected.push({ name: entry.name, isDir: entry.isDirectory })
-          } else {
-            const file = item.getAsFile()
-            if (file) collected.push({ name: file.name, isDir: false })
+          if (entry && entry.isDirectory) {
+            collected.push({ name: entry.name, isDir: true })
+            continue
+          }
+          const file = item.getAsFile()
+          if (file) {
+            collected.push({ name: file.name, isDir: false, size: file.size, lastModified: file.lastModified })
+          } else if (entry) {
+            collected.push({ name: entry.name, isDir: false })
           }
         }
       } else if (e.dataTransfer?.files?.length) {
         for (const file of e.dataTransfer.files) {
-          collected.push({ name: file.name, isDir: false })
+          collected.push({ name: file.name, isDir: false, size: file.size, lastModified: file.lastModified })
         }
       }
 
@@ -38,7 +46,9 @@ export function FileDropZone({ lang, onAddFiles }) {
 
   const handleInputChange = (e) => {
     const files = Array.from(e.target.files || [])
-    if (files.length) onAddFiles(files.map((f) => ({ name: f.name, isDir: false })))
+    if (files.length) {
+      onAddFiles(files.map((f) => ({ name: f.name, isDir: false, size: f.size, lastModified: f.lastModified })))
+    }
     e.target.value = ''
   }
 

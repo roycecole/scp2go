@@ -14,6 +14,29 @@ describe('ADD_FILES', () => {
     expect(state.files).toHaveLength(2)
   })
 
+  it('preserves size/lastModified when the browser supplied real File metadata', () => {
+    const state = reducer(initialState, {
+      type: 'ADD_FILES',
+      files: [{ name: 'a.txt', isDir: false, size: 2048, lastModified: 1757894400000 }],
+    })
+    expect(state.files[0]).toMatchObject({ size: 2048, lastModified: 1757894400000 })
+  })
+
+  it('omits size/lastModified when not supplied (e.g. a folder, or a manually-typed download filename)', () => {
+    const state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'dir1', isDir: true }] })
+    expect(state.files[0]).not.toHaveProperty('size')
+    expect(state.files[0]).not.toHaveProperty('lastModified')
+  })
+
+  it('ignores non-numeric size/lastModified rather than storing garbage', () => {
+    const state = reducer(initialState, {
+      type: 'ADD_FILES',
+      files: [{ name: 'a.txt', isDir: false, size: 'huge', lastModified: NaN }],
+    })
+    expect(state.files[0]).not.toHaveProperty('size')
+    expect(state.files[0]).not.toHaveProperty('lastModified')
+  })
+
   it('auto-enables optRecursive one-directionally when a folder is added', () => {
     let state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'dir1', isDir: true }] })
     expect(state.optRecursive).toBe(true)
@@ -43,11 +66,13 @@ describe('REMOVE_FILE', () => {
 })
 
 describe('APPLY_PRESET', () => {
-  it('oracle preset sets user/port/dest', () => {
+  it('oracle preset sets user/port/dest and enables known-hosts + test-connection', () => {
     const state = reducer({ ...initialState, user: 'x', port: '2222', dest: '/tmp' }, { type: 'APPLY_PRESET', preset: 'oracle' })
     expect(state.user).toBe('ubuntu')
     expect(state.port).toBe('22')
     expect(state.dest).toBe('~/')
+    expect(state.optKnownHosts).toBe(true)
+    expect(state.optTestConn).toBe(true)
   })
 
   it('sshkey preset sets dest/toggles/srcDir based on os', () => {
@@ -187,5 +212,33 @@ describe('SSH config entries', () => {
     state = reducer(state, { type: 'REMOVE_SSH_CONFIG_ENTRY', id: idToRemove })
     expect(state.sshConfigEntries).toHaveLength(1)
     expect(state.sshConfigEntries[0].host).toBe('9.9.9.9')
+  })
+
+  it('IMPORT_SSH_CONFIG_ENTRIES appends parsed entries with fresh ids', () => {
+    const parsed = [{ alias: 'a', host: '1.1.1.1', port: '22', user: 'ubuntu', key: '' }]
+    const state = reducer(initialState, { type: 'IMPORT_SSH_CONFIG_ENTRIES', entries: parsed })
+    expect(state.sshConfigEntries).toHaveLength(1)
+    expect(state.sshConfigEntries[0]).toMatchObject(parsed[0])
+    expect(state.sshConfigEntries[0].id).toBeTruthy()
+  })
+
+  it('IMPORT_SSH_CONFIG_ENTRIES is a no-op for an empty or non-array payload', () => {
+    expect(reducer(initialState, { type: 'IMPORT_SSH_CONFIG_ENTRIES', entries: [] })).toBe(initialState)
+    expect(reducer(initialState, { type: 'IMPORT_SSH_CONFIG_ENTRIES', entries: 'nope' })).toBe(initialState)
+  })
+})
+
+describe('SAVE_PROFILE auto-fills the SSH config alias', () => {
+  it('fills configAlias from the profile name when it was blank', () => {
+    const state = reducer(initialState, { type: 'SAVE_PROFILE', name: 'My Server' })
+    expect(state.configAlias).toBe('My Server')
+    expect(state.profiles[0].configAlias).toBe('My Server')
+  })
+
+  it('does not clobber a configAlias the user already typed', () => {
+    const withAlias = { ...initialState, configAlias: 'custom-alias' }
+    const state = reducer(withAlias, { type: 'SAVE_PROFILE', name: 'My Server' })
+    expect(state.configAlias).toBe('custom-alias')
+    expect(state.profiles[0].configAlias).toBe('custom-alias')
   })
 })

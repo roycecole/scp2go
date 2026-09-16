@@ -79,6 +79,15 @@ export function OptionsPanel({ state, dispatch }) {
           label={t(lang, 'options.sshLogin.label')}
           description={t(lang, 'options.sshLogin.desc')}
         />
+        {state.optSshLogin ? (
+          <ToggleSwitch
+            id="optAgentForward"
+            checked={state.optAgentForward}
+            onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optAgentForward' })}
+            label={t(lang, 'options.agentForward.label')}
+            description={t(lang, 'options.agentForward.desc')}
+          />
+        ) : null}
         <ToggleSwitch
           id="optKnownHosts"
           checked={state.optKnownHosts}
@@ -94,6 +103,13 @@ export function OptionsPanel({ state, dispatch }) {
               onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optPartial' })}
               label={t(lang, 'options.partial.label')}
               description={t(lang, 'options.partial.desc')}
+            />
+            <ToggleSwitch
+              id="optChecksum"
+              checked={state.optChecksum}
+              onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optChecksum' })}
+              label={t(lang, 'options.checksum.label')}
+              description={t(lang, 'options.checksum.desc')}
             />
             <ToggleSwitch
               id="optDelete"

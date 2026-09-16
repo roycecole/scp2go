@@ -29,7 +29,12 @@ function sanitizeFiles(v) {
   if (!Array.isArray(v)) return []
   return v
     .filter((f) => f && typeof f.name === 'string' && f.name)
-    .map((f) => ({ id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir) }))
+    .map((f) => {
+      const entry = { id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir) }
+      if (typeof f.size === 'number' && Number.isFinite(f.size)) entry.size = f.size
+      if (typeof f.lastModified === 'number' && Number.isFinite(f.lastModified)) entry.lastModified = f.lastModified
+      return entry
+    })
 }
 
 /**
@@ -58,6 +63,8 @@ function sanitizeProfileField(field, value) {
     case 'optKnownHosts':
     case 'optPartial':
     case 'optSshLogin':
+    case 'optAgentForward':
+    case 'optChecksum':
       return bool(value, /** @type {any} */ (initialState)[field])
     default:
       return str(/** @type {any} */ (value), /** @type {any} */ (initialState)[field])
@@ -129,8 +136,12 @@ function sanitize(raw) {
     optKnownHosts: bool(raw.optKnownHosts, initialState.optKnownHosts),
     optPartial: bool(raw.optPartial, initialState.optPartial),
     optSshLogin: bool(raw.optSshLogin, initialState.optSshLogin),
+    optAgentForward: bool(raw.optAgentForward, initialState.optAgentForward),
+    optChecksum: bool(raw.optChecksum, initialState.optChecksum),
     excludePatterns: str(raw.excludePatterns, initialState.excludePatterns),
     configAlias: str(raw.configAlias, initialState.configAlias),
+    buildCommand: str(raw.buildCommand, initialState.buildCommand),
+    restartCommand: str(raw.restartCommand, initialState.restartCommand),
     theme: THEMES.has(raw.theme) ? raw.theme : initialState.theme,
     lang: LANGS.has(raw.lang) ? raw.lang : initialState.lang,
     profiles: sanitizeProfiles(raw.profiles),

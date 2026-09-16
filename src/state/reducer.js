@@ -1,7 +1,7 @@
 // @ts-check
 import { applyOraclePreset, applySshKeyPreset } from '../lib/presets.js'
 
-/** @typedef {{ id: string, name: string, isDir: boolean }} FileEntry */
+/** @typedef {{ id: string, name: string, isDir: boolean, size?: number, lastModified?: number }} FileEntry */
 /** @typedef {'upload'|'download'} Direction */
 /** @typedef {{ id: string, alias: string, host: string, port: string, user: string, key: string }} SshConfigEntry */
 
@@ -31,8 +31,12 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
   'optKnownHosts',
   'optPartial',
   'optSshLogin',
+  'optAgentForward',
+  'optChecksum',
   'excludePatterns',
   'configAlias',
+  'buildCommand',
+  'restartCommand',
 ])
 
 /**
@@ -58,8 +62,12 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {boolean} optKnownHosts
  * @property {boolean} optPartial
  * @property {boolean} optSshLogin
+ * @property {boolean} optAgentForward
+ * @property {boolean} optChecksum
  * @property {string} excludePatterns
  * @property {string} configAlias
+ * @property {string} buildCommand
+ * @property {string} restartCommand
  * @property {'system'|'light'|'dark'} theme
  * @property {'zh-Hant'|'en'} lang
  * @property {Array<{id: string, name: string} & Record<string, any>>} profiles
@@ -89,8 +97,12 @@ export const initialState = {
   optKnownHosts: false,
   optPartial: false,
   optSshLogin: false,
+  optAgentForward: false,
+  optChecksum: false,
   excludePatterns: '',
   configAlias: '',
+  buildCommand: '',
+  restartCommand: '',
   theme: 'system',
   lang: 'zh-Hant',
   profiles: [],
@@ -109,6 +121,8 @@ const TOGGLE_OPTIONS = new Set([
   'optKnownHosts',
   'optPartial',
   'optSshLogin',
+  'optAgentForward',
+  'optChecksum',
 ])
 const THEMES = new Set(['system', 'light', 'dark'])
 const LANGS = new Set(['zh-Hant', 'en'])
@@ -148,11 +162,15 @@ export function reducer(state, action) {
 
     case 'ADD_FILES': {
       /** @type {FileEntry[]} */
-      const incoming = action.files.map((/** @type {{name:string,isDir?:boolean}} */ f) => ({
-        id: `${f.isDir ? 'd' : 'f'}:${f.name}`,
-        name: f.name,
-        isDir: Boolean(f.isDir),
-      }))
+      const incoming = action.files.map(
+        (/** @type {{name:string,isDir?:boolean,size?:number,lastModified?:number}} */ f) => {
+          /** @type {FileEntry} */
+          const entry = { id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir) }
+          if (typeof f.size === 'number' && Number.isFinite(f.size)) entry.size = f.size
+          if (typeof f.lastModified === 'number' && Number.isFinite(f.lastModified)) entry.lastModified = f.lastModified
+          return entry
+        }
+      )
       const existingIds = new Set(state.files.map((f) => f.id))
       const deduped = incoming.filter((f) => !existingIds.has(f.id))
       if (deduped.length === 0) return state
@@ -183,10 +201,15 @@ export function reducer(state, action) {
     case 'SAVE_PROFILE': {
       const name = (action.name || '').trim()
       if (!name) return state
+      // Auto-fill the SSH-config alias from the profile name when the user
+      // hasn't already typed one of their own — keeps the two naming fields
+      // in sync without extra typing, without clobbering a deliberate value.
+      const configAlias = (state.configAlias || '').trim() ? state.configAlias : name
+      const snapshotSource = { ...state, configAlias }
       /** @type {{id: string, name: string} & Record<string, any>} */
       const profile = { id: genId('p'), name }
-      for (const field of PROFILE_FIELDS) profile[field] = state[field]
-      return { ...state, profiles: [...state.profiles, profile] }
+      for (const field of PROFILE_FIELDS) profile[field] = snapshotSource[field]
+      return { ...state, profiles: [...state.profiles, profile], configAlias }
     }
 
     case 'LOAD_PROFILE': {
@@ -228,6 +251,16 @@ export function reducer(state, action) {
 
     case 'REMOVE_SSH_CONFIG_ENTRY':
       return { ...state, sshConfigEntries: state.sshConfigEntries.filter((e) => e.id !== action.id) }
+
+    case 'IMPORT_SSH_CONFIG_ENTRIES': {
+      // Expects entries already shaped by lib/commandBuilder.js's
+      // parseSshConfigText (alias/host/port/user/key, no id) — fresh ids are
+      // assigned here, same reasoning as IMPORT_PROFILES.
+      const incoming = Array.isArray(action.entries) ? action.entries : []
+      if (incoming.length === 0) return state
+      const withIds = incoming.map((e) => ({ ...e, id: genId('c') }))
+      return { ...state, sshConfigEntries: [...state.sshConfigEntries, ...withIds] }
+    }
 
     default:
       return state

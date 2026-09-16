@@ -197,7 +197,9 @@ function tokensToPlainText(tokens) {
  *   host: string, optMkdir: boolean, optRecursive: boolean, optChmod: boolean,
  *   optTestConn: boolean, optDryRun: boolean, optIcaclsFix: boolean,
  *   optDelete: boolean, optProgress: boolean, optKnownHosts: boolean,
- *   optPartial: boolean, optSshLogin: boolean, excludePatterns: string,
+ *   optPartial: boolean, optSshLogin: boolean, optAgentForward: boolean,
+ *   optChecksum: boolean, excludePatterns: string, buildCommand: string,
+ *   restartCommand: string,
  * }} StepContext
  */
 
@@ -211,6 +213,22 @@ function tokensToPlainText(tokens) {
  */
 function knownHostsRef(host, port) {
   return port === '22' ? host : `[${host}]:${port}`
+}
+
+/**
+ * A bare local build command (e.g. `npm run build`), run before anything
+ * else — it needs no network, so it makes sense to finish before even the
+ * known_hosts/connection-test steps. Passed through verbatim: this is
+ * arbitrary user-authored shell text, not a path or pattern this tool
+ * constructs, so there is nothing here to quote or interpret.
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildBuildStep(ctx) {
+  const cmd = (ctx.buildCommand || '').trim()
+  if (!cmd) return null
+  const tokens = [{ type: 'value', text: cmd }]
+  return { id: 'build', label: '建置', tokens, plainText: cmd }
 }
 
 /**
@@ -269,8 +287,28 @@ function buildSshLoginStep(ctx) {
   if (!ctx.optSshLogin) return null
   const tokens = []
   push(tokens, 'cmd', 'ssh')
+  if (ctx.optAgentForward) push(tokens, 'flag', '-A')
   pushSshTarget(tokens, ctx)
   return { id: 'sshLogin', label: '互動式登入', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
+ * Restarts a remote service after the transfer completes, via a plain ssh
+ * remote-command call. The user's command is arbitrary shell text they
+ * authored themselves — only the outer double-quote boundary is protected
+ * (a literal `"` in their command would otherwise end the string early),
+ * nothing else about their command is touched or reinterpreted.
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildRestartStep(ctx) {
+  const cmd = (ctx.restartCommand || '').trim()
+  if (!cmd) return null
+  const tokens = []
+  push(tokens, 'cmd', 'ssh')
+  pushSshTarget(tokens, ctx)
+  push(tokens, 'string', `"${cmd.replace(/"/g, '\\"')}"`)
+  return { id: 'restart', label: '重啟遠端服務', tokens, plainText: tokensToPlainText(tokens) }
 }
 
 /**
@@ -335,6 +373,7 @@ function buildTransferStep(ctx) {
     optDelete,
     optProgress,
     optPartial,
+    optChecksum,
     excludePatterns,
   } = ctx
   const tokens = []
@@ -353,6 +392,7 @@ function buildTransferStep(ctx) {
     push(tokens, 'cmd', 'rsync')
     push(tokens, 'flag', '-avz')
     if (optPartial) push(tokens, 'flag', '--partial')
+    if (optChecksum) push(tokens, 'flag', '--checksum')
     if (optDelete) push(tokens, 'flag', '--delete')
     for (const pattern of parseExcludePatterns(excludePatterns)) {
       push(tokens, 'flag', `--exclude=${quoteExcludePattern(pattern, os)}`)
@@ -461,10 +501,16 @@ export function buildSteps(state) {
     optKnownHosts: Boolean(state.optKnownHosts),
     optPartial: Boolean(state.optPartial),
     optSshLogin: Boolean(state.optSshLogin),
+    optAgentForward: Boolean(state.optAgentForward),
+    optChecksum: Boolean(state.optChecksum),
     excludePatterns: state.excludePatterns || '',
+    buildCommand: state.buildCommand || '',
+    restartCommand: state.restartCommand || '',
   }
 
   const steps = []
+  const build = buildBuildStep(ctx)
+  if (build) steps.push(build)
   const knownHosts = buildKnownHostsStep(ctx)
   if (knownHosts) steps.push(knownHosts)
   const testConn = buildTestConnStep(ctx)
@@ -480,6 +526,8 @@ export function buildSteps(state) {
   }
   const icacls = buildIcaclsStep(ctx)
   if (icacls) steps.push(icacls)
+  const restart = buildRestartStep(ctx)
+  if (restart) steps.push(restart)
 
   return steps
 }
@@ -542,4 +590,70 @@ export function buildSshConfigEntryBlock(entry) {
  */
 export function buildSshConfigExport(entries) {
   return entries.map(buildSshConfigEntryBlock).join('\n\n')
+}
+
+/**
+ * Strips a wrapping "..." from an ssh_config value (its own quoting
+ * convention, matching quoteSshConfig) and un-escapes \" inside it. Returns
+ * the value as-is if it wasn't quoted.
+ * @param {string} raw
+ * @returns {string}
+ */
+function unquoteSshConfig(raw) {
+  const trimmed = raw.trim()
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/\\"/g, '"')
+  }
+  return trimmed
+}
+
+/**
+ * Parses `Host` blocks out of ~/.ssh/config-style text into entries this
+ * tool understands — the inverse of buildSshConfigExport. Best-effort and
+ * deliberately narrow: only HostName/Port/User/IdentityFile are read (any
+ * other directive is ignored, not an error), directive names are matched
+ * case-insensitively per the real ssh_config format, and a `Host` line
+ * naming multiple patterns or a wildcard (`Host *`, `Host web-*`) is
+ * skipped — those describe a *pattern* of hosts, not one specific saved
+ * connection, so there's nothing meaningful to import for it. Returned
+ * entries have no `id` — the caller (a reducer action) assigns fresh ones,
+ * the same division of responsibility as profile import.
+ * @param {string} text
+ * @returns {Array<{alias: string, host: string, port: string, user: string, key: string}>}
+ */
+export function parseSshConfigText(text) {
+  /** @type {Array<{alias: string, host: string, port: string, user: string, key: string}>} */
+  const entries = []
+  /** @type {typeof entries[number] | null} */
+  let current = null
+
+  for (const rawLine of (text || '').split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+
+    const spaceIdx = line.search(/\s/)
+    if (spaceIdx === -1) continue
+    const directive = line.slice(0, spaceIdx).toLowerCase()
+    const rest = line.slice(spaceIdx + 1).trim()
+    if (!rest) continue
+
+    if (directive === 'host') {
+      const patterns = rest.split(/\s+/)
+      const alias = patterns[0]
+      current = patterns.length === 1 && alias && !/[*?]/.test(alias) ? { alias, host: '', port: '', user: '', key: '' } : null
+      if (current) entries.push(current)
+      continue
+    }
+
+    if (!current) continue
+    const value = unquoteSshConfig(rest)
+    if (directive === 'hostname') current.host = value
+    else if (directive === 'port') current.port = value
+    else if (directive === 'user') current.user = value
+    else if (directive === 'identityfile') current.key = value
+  }
+
+  // A Host block with no HostName isn't unusable — ssh itself falls back to
+  // the alias as the address in that case, so mirror that here too.
+  return entries.filter((e) => e.alias).map((e) => ({ ...e, host: e.host || e.alias }))
 }

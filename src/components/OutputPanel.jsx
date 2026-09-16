@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCheck, faCopy, faFileArrowDown } from '@fortawesome/free-solid-svg-icons'
+import { faCheck, faCopy, faFileArrowDown, faAnglesDown, faAnglesUp } from '@fortawesome/free-solid-svg-icons'
 import { buildSteps, buildCopyAllText, buildScriptFile } from '../lib/commandBuilder.js'
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
@@ -12,8 +12,18 @@ export function OutputPanel({ state }) {
   const os = state.os === 'nix' ? 'nix' : 'win'
   const steps = useMemo(() => buildSteps(state), [state])
   const [copiedAll, setCopiedAll] = useState(false)
+  const [allExpanded, setAllExpanded] = useState(false)
+  const bodyRef = useRef(null)
 
   const getLabel = (s) => t(lang, `step.${s.id}.label`)
+
+  const handleToggleAll = () => {
+    const next = !allExpanded
+    bodyRef.current?.querySelectorAll('details').forEach((details) => {
+      details.open = next
+    })
+    setAllExpanded(next)
+  }
 
   const handleCopyAll = async () => {
     const ok = await copyText(buildCopyAllText(steps, getLabel))
@@ -42,10 +52,14 @@ export function OutputPanel({ state }) {
               <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
               {t(lang, 'output.exportScript')}
             </button>
+            <button type="button" className="btn btn--sm" onClick={handleToggleAll}>
+              <FontAwesomeIcon icon={allExpanded ? faAnglesUp : faAnglesDown} aria-hidden="true" />
+              {t(lang, allExpanded ? 'output.collapseAll' : 'output.expandAll')}
+            </button>
           </div>
         ) : null}
       </div>
-      <div className="terminal__body">
+      <div className="terminal__body" ref={bodyRef}>
         {steps.length === 0 ? (
           <p className="terminal__guidance">{t(lang, 'output.guidance')}</p>
         ) : (
