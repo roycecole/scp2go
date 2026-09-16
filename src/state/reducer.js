@@ -1,7 +1,7 @@
 // @ts-check
 import { applyOraclePreset, applySshKeyPreset } from '../lib/presets.js'
 
-/** @typedef {{ id: string, name: string, isDir: boolean, size?: number, lastModified?: number }} FileEntry */
+/** @typedef {{ id: string, name: string, isDir: boolean, size?: number, lastModified?: number, addedAt?: number }} FileEntry */
 /** @typedef {'upload'|'download'} Direction */
 /** @typedef {{ id: string, alias: string, host: string, port: string, user: string, key: string }} SshConfigEntry */
 
@@ -164,11 +164,14 @@ export function reducer(state, action) {
       return TOGGLE_OPTIONS.has(action.option) ? { ...state, [action.option]: !state[action.option] } : state
 
     case 'ADD_FILES': {
+      // One timestamp for the whole batch — files dropped/picked together
+      // were added together, rather than each getting its own millisecond.
+      const now = Date.now()
       /** @type {FileEntry[]} */
       const incoming = action.files.map(
         (/** @type {{name:string,isDir?:boolean,size?:number,lastModified?:number}} */ f) => {
           /** @type {FileEntry} */
-          const entry = { id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir) }
+          const entry = { id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir), addedAt: now }
           if (typeof f.size === 'number' && Number.isFinite(f.size)) entry.size = f.size
           if (typeof f.lastModified === 'number' && Number.isFinite(f.lastModified)) entry.lastModified = f.lastModified
           return entry

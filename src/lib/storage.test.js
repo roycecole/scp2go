@@ -61,6 +61,20 @@ describe('loadState / saveState', () => {
     expect(loadState().files[0]).not.toHaveProperty('size')
   })
 
+  it('round-trips addedAt when present', () => {
+    const state = { ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, addedAt: 1757894400000 }] }
+    saveState(state)
+    expect(loadState().files[0]).toMatchObject({ addedAt: 1757894400000 })
+  })
+
+  it('drops a non-numeric addedAt from a stored file entry rather than storing garbage', () => {
+    localStorage.setItem(
+      'scp2go:state',
+      JSON.stringify({ ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, addedAt: 'yesterday' }] })
+    )
+    expect(loadState().files[0]).not.toHaveProperty('addedAt')
+  })
+
   it('round-trips saved profiles, including their nested field validation', () => {
     const state = {
       ...initialState,

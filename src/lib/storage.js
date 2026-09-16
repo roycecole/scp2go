@@ -33,6 +33,7 @@ function sanitizeFiles(v) {
       const entry = { id: `${f.isDir ? 'd' : 'f'}:${f.name}`, name: f.name, isDir: Boolean(f.isDir) }
       if (typeof f.size === 'number' && Number.isFinite(f.size)) entry.size = f.size
       if (typeof f.lastModified === 'number' && Number.isFinite(f.lastModified)) entry.lastModified = f.lastModified
+      if (typeof f.addedAt === 'number' && Number.isFinite(f.addedAt)) entry.addedAt = f.addedAt
       return entry
     })
 }

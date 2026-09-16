@@ -6,8 +6,13 @@ import { t } from '../lib/i18n.js'
 
 export function FileChip({ file, lang, onRemove }) {
   const sizeText = formatFileSize(file.size)
-  const dateText = formatFileDate(file.lastModified, lang)
-  const meta = [sizeText && `${t(lang, 'chip.size')} ${sizeText}`, dateText && `${t(lang, 'chip.modified')} ${dateText}`]
+  const modifiedText = formatFileDate(file.lastModified, lang)
+  const addedText = formatFileDate(file.addedAt, lang)
+  const meta = [
+    sizeText && `${t(lang, 'chip.size')} ${sizeText}`,
+    modifiedText && `${t(lang, 'chip.modified')} ${modifiedText}`,
+    addedText && `${t(lang, 'chip.addedAt')} ${addedText}`,
+  ]
     .filter(Boolean)
     .join(' · ')
   const sensitive = !file.isDir && isSensitiveFilename(file.name)

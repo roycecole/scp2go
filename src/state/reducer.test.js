@@ -61,6 +61,24 @@ describe('ADD_FILES', () => {
     const state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'a.txt', isDir: false }] })
     expect(state.optRecursive).toBe(false)
   })
+
+  it('stamps addedAt with the current time, ignoring any caller-supplied value', () => {
+    const before = Date.now()
+    const state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'a.txt', isDir: false, addedAt: 1 }] })
+    expect(state.files[0].addedAt).toBeGreaterThanOrEqual(before)
+    expect(state.files[0].addedAt).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('gives every file in the same batch the same addedAt timestamp', () => {
+    const state = reducer(initialState, {
+      type: 'ADD_FILES',
+      files: [
+        { name: 'a.txt', isDir: false },
+        { name: 'b.txt', isDir: false },
+      ],
+    })
+    expect(state.files[0].addedAt).toBe(state.files[1].addedAt)
+  })
 })
 
 describe('REMOVE_FILE', () => {
