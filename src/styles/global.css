@@ -112,6 +112,35 @@ img {
   font-size: 0.9375rem;
 }
 
+.anchor-link {
+  margin-left: 0.4rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.panel__legend:hover .anchor-link,
+.terminal__title:hover .anchor-link,
+.anchor-link:focus-visible {
+  opacity: 1;
+}
+
+.panel__legend:target,
+.terminal__title:target {
+  animation: anchor-flash 1.6s ease;
+}
+
+@keyframes anchor-flash {
+  0% {
+    color: var(--color-primary);
+  }
+  100% {
+    color: inherit;
+  }
+}
+
 .panel__hint {
   margin: 0 0 1rem;
   font-size: 0.8125rem;
@@ -128,6 +157,11 @@ img {
   gap: 0.5rem;
   font-weight: 600;
   font-size: 0.9375rem;
+}
+
+.access-keys__caret {
+  color: var(--color-text-muted);
+  width: 0.75rem;
 }
 
 .access-keys__summary::-webkit-details-marker {
@@ -171,6 +205,7 @@ img {
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  align-items: start;
   gap: 0.875rem;
 }
 

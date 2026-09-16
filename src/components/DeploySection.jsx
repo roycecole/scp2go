@@ -1,3 +1,4 @@
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 const BUILD_PRESETS = ['npm run build', 'npm ci && npm run build', 'docker build -t myapp .', 'docker compose build']
@@ -40,7 +41,10 @@ export function DeploySection({ state, dispatch }) {
 
   return (
     <fieldset className="panel">
-      <legend className="panel__legend">{t(lang, 'deploy.legend')}</legend>
+      <legend className="panel__legend" id="deploy-heading">
+        {t(lang, 'deploy.legend')}
+        <AnchorLink id="deploy-heading" section={t(lang, 'deploy.legend')} lang={lang} />
+      </legend>
       <p className="panel__hint">{t(lang, 'deploy.hint')}</p>
 
       <div className="field-row">

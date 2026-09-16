@@ -1,3 +1,4 @@
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 export function ConnectionForm({ state, dispatch }) {
@@ -6,7 +7,10 @@ export function ConnectionForm({ state, dispatch }) {
 
   return (
     <fieldset className="panel">
-      <legend className="panel__legend">{t(lang, 'connection.legend')}</legend>
+      <legend className="panel__legend" id="connection-heading">
+        {t(lang, 'connection.legend')}
+        <AnchorLink id="connection-heading" section={t(lang, 'connection.legend')} lang={lang} />
+      </legend>
       <div className="field-row">
         <div className="field">
           <label className="field__label" htmlFor="host">

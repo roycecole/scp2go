@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFileSize, formatFileDate, sortFiles } from './fileFormat.js'
+import { formatFileSize, formatFileDate, sortFiles, getFileCategory } from './fileFormat.js'
 
 describe('formatFileSize', () => {
   it('formats bytes under 1024 as plain bytes', () => {
@@ -81,5 +81,40 @@ describe('sortFiles', () => {
     const original = [...files]
     sortFiles(files, 'name', 'asc')
     expect(files).toEqual(original)
+  })
+})
+
+describe('getFileCategory', () => {
+  it('recognizes an image', () => {
+    expect(getFileCategory('photo.png')).toBe('image')
+    expect(getFileCategory('logo.SVG')).toBe('image')
+  })
+  it('recognizes an archive', () => {
+    expect(getFileCategory('backup.tar.gz')).toBe('archive')
+    expect(getFileCategory('site.zip')).toBe('archive')
+  })
+  it('recognizes source code', () => {
+    expect(getFileCategory('index.js')).toBe('code')
+    expect(getFileCategory('config.yaml')).toBe('code')
+  })
+  it('recognizes a PDF', () => {
+    expect(getFileCategory('invoice.pdf')).toBe('pdf')
+  })
+  it('recognizes audio and video', () => {
+    expect(getFileCategory('song.mp3')).toBe('audio')
+    expect(getFileCategory('clip.mp4')).toBe('video')
+  })
+  it('recognizes an office/text document', () => {
+    expect(getFileCategory('report.docx')).toBe('document')
+    expect(getFileCategory('notes.md')).toBe('document')
+  })
+  it('falls back to the generic "file" category for an unknown or missing extension', () => {
+    expect(getFileCategory('README')).toBe('file')
+    expect(getFileCategory('data.xyz')).toBe('file')
+    expect(getFileCategory('')).toBe('file')
+    expect(getFileCategory(undefined)).toBe('file')
+  })
+  it('matches only the final extension, e.g. a .tar.gz archive is archive, not "tar"', () => {
+    expect(getFileCategory('backup.tar.gz')).toBe('archive')
   })
 })

@@ -44,7 +44,7 @@ const STRINGS = {
     'chip.remove': '移除 {name}',
     'chip.size': '大小',
     'chip.modified': '修改',
-    'chip.addedAt': '加入',
+    'chip.addedAt': '建立日期',
     'remoteFiles.hint': '輸入遠端檔名，按 Enter 或點擊新增',
     'remoteFiles.placeholder': '例如 backup.tar.gz',
     'remoteFiles.isDir': '資料夾',
@@ -169,6 +169,7 @@ const STRINGS = {
     'accessKeys.saveProfile': '將目前設定儲存為新設定檔',
     'accessKeys.copyAll': '複製全部產生的指令',
     'accessKeys.exportScript': '將指令匯出成可執行的腳本檔',
+    'anchor.linkTo': '連結到「{section}」區塊',
   },
   en: {
     'app.title': 'SCP Command Generator',
@@ -205,7 +206,7 @@ const STRINGS = {
     'chip.remove': 'Remove {name}',
     'chip.size': 'Size',
     'chip.modified': 'Modified',
-    'chip.addedAt': 'Added',
+    'chip.addedAt': 'Created',
     'remoteFiles.hint': 'Type a remote filename, press Enter or click Add',
     'remoteFiles.placeholder': 'e.g. backup.tar.gz',
     'remoteFiles.isDir': 'Folder',
@@ -333,6 +334,7 @@ const STRINGS = {
     'accessKeys.saveProfile': 'Save the current settings as a new profile',
     'accessKeys.copyAll': 'Copy all generated commands',
     'accessKeys.exportScript': 'Export the commands as a runnable script',
+    'anchor.linkTo': 'Link to the "{section}" section',
   },
 }
 

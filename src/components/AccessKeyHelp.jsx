@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faKeyboard } from '@fortawesome/free-solid-svg-icons'
+import { faKeyboard, faCaretRight, faCaretDown } from '@fortawesome/free-solid-svg-icons'
 import { t } from '../lib/i18n.js'
 
 const SHORTCUTS = [
@@ -11,9 +12,12 @@ const SHORTCUTS = [
 ]
 
 export function AccessKeyHelp({ lang }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <details className="access-keys panel">
+    <details className="access-keys panel" onToggle={(e) => setOpen(e.target.open)}>
       <summary className="access-keys__summary">
+        <FontAwesomeIcon icon={open ? faCaretDown : faCaretRight} className="access-keys__caret" aria-hidden="true" />
         <FontAwesomeIcon icon={faKeyboard} aria-hidden="true" />
         {t(lang, 'accessKeys.title')}
       </summary>

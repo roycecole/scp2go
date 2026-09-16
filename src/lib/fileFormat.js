@@ -62,3 +62,34 @@ export function sortFiles(files, sortKey, sortDir, lang) {
 function numericOrFloor(v) {
   return typeof v === 'number' && Number.isFinite(v) ? v : -1
 }
+
+/** @typedef {'image'|'archive'|'code'|'pdf'|'audio'|'video'|'document'|'file'} FileCategory */
+
+const EXTENSION_CATEGORIES = /** @type {const} */ ({
+  image: ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif'],
+  archive: ['zip', 'tar', 'gz', 'tgz', 'rar', '7z', 'bz2', 'xz'],
+  code: ['js', 'jsx', 'ts', 'tsx', 'py', 'rb', 'go', 'java', 'c', 'cpp', 'h', 'cs', 'php', 'sh', 'json', 'yml', 'yaml', 'html', 'css', 'sql'],
+  pdf: ['pdf'],
+  audio: ['mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac'],
+  video: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
+  document: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'md', 'txt'],
+})
+
+/** @type {Map<string, FileCategory>} */
+const EXT_TO_CATEGORY = new Map()
+for (const [category, exts] of Object.entries(EXTENSION_CATEGORIES)) {
+  for (const ext of exts) EXT_TO_CATEGORY.set(ext, /** @type {FileCategory} */ (category))
+}
+
+/**
+ * Categorizes a filename by its extension, for picking a representative
+ * icon in the file table. `'file'` is the generic fallback — an
+ * extension-less name, or an extension this tool doesn't recognize.
+ * @param {string} name
+ * @returns {FileCategory}
+ */
+export function getFileCategory(name) {
+  const match = /\.([a-z0-9]+)$/i.exec(name || '')
+  if (!match) return 'file'
+  return EXT_TO_CATEGORY.get(match[1].toLowerCase()) || 'file'
+}

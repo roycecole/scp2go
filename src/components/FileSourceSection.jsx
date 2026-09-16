@@ -4,6 +4,7 @@ import { FileDropZone } from './FileDropZone.jsx'
 import { RemoteFileEntry } from './RemoteFileEntry.jsx'
 import { FileTable } from './FileTable.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 const DIRECTION_OPTIONS = (lang) => [
@@ -19,7 +20,10 @@ export function FileSourceSection({ state, dispatch }) {
 
   return (
     <fieldset className="panel">
-      <legend className="panel__legend">{t(lang, 'fileSource.legend')}</legend>
+      <legend className="panel__legend" id="file-source-heading">
+        {t(lang, 'fileSource.legend')}
+        <AnchorLink id="file-source-heading" section={t(lang, 'fileSource.legend')} lang={lang} />
+      </legend>
 
       <SegmentedControl
         name="direction"

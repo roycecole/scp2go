@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ToggleSwitch } from './primitives/ToggleSwitch.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 const TRANSPORT_OPTIONS = [
@@ -23,7 +24,10 @@ export function OptionsPanel({ state, dispatch }) {
 
   return (
     <fieldset className="panel">
-      <legend className="panel__legend">{t(lang, 'options.legend')}</legend>
+      <legend className="panel__legend" id="options-heading">
+        {t(lang, 'options.legend')}
+        <AnchorLink id="options-heading" section={t(lang, 'options.legend')} lang={lang} />
+      </legend>
 
       <div className="field-row">
         <div className="field">

@@ -5,6 +5,7 @@ import { buildSteps, buildCopyAllText, buildScriptFile } from '../lib/commandBui
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
 import { CommandStep } from './CommandStep.jsx'
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 export function OutputPanel({ state }) {
@@ -41,6 +42,7 @@ export function OutputPanel({ state }) {
       <div className="terminal__header">
         <h2 className="terminal__title" id="output-heading">
           {t(lang, 'output.title')}
+          <AnchorLink id="output-heading" section={t(lang, 'output.title')} lang={lang} />
         </h2>
         {steps.length > 0 ? (
           <div className="terminal__header-actions">

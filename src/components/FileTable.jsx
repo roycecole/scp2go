@@ -3,13 +3,20 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faFolder,
   faFile,
+  faFileImage,
+  faFileZipper,
+  faFileCode,
+  faFilePdf,
+  faFileAudio,
+  faFileVideo,
+  faFileLines,
   faXmark,
   faTriangleExclamation,
   faSort,
   faSortUp,
   faSortDown,
 } from '@fortawesome/free-solid-svg-icons'
-import { formatFileSize, formatFileDate, sortFiles } from '../lib/fileFormat.js'
+import { formatFileSize, formatFileDate, sortFiles, getFileCategory } from '../lib/fileFormat.js'
 import { isSensitiveFilename } from '../lib/sensitiveFiles.js'
 import { t } from '../lib/i18n.js'
 
@@ -19,6 +26,23 @@ const COLUMNS = [
   { key: 'lastModified', labelKey: 'chip.modified' },
   { key: 'addedAt', labelKey: 'chip.addedAt' },
 ]
+
+const CATEGORY_ICONS = {
+  image: faFileImage,
+  archive: faFileZipper,
+  code: faFileCode,
+  pdf: faFilePdf,
+  audio: faFileAudio,
+  video: faFileVideo,
+  document: faFileLines,
+  file: faFile,
+}
+
+/** @param {{ isDir: boolean, name: string }} file */
+function fileIcon(file) {
+  if (file.isDir) return faFolder
+  return CATEGORY_ICONS[getFileCategory(file.name)]
+}
 
 export function FileTable({ files, lang, onRemove }) {
   const [sortKey, setSortKey] = useState(null)
@@ -67,7 +91,7 @@ export function FileTable({ files, lang, onRemove }) {
               <tr key={file.id} className={sensitive ? 'file-table__row--sensitive' : undefined}>
                 <td className="file-table__name-cell">
                   <span className="file-table__name-inner">
-                    <FontAwesomeIcon icon={file.isDir ? faFolder : faFile} className="file-table__icon" aria-hidden="true" />
+                    <FontAwesomeIcon icon={fileIcon(file)} className="file-table__icon" aria-hidden="true" />
                     {file.name}
                     {sensitive ? (
                       <FontAwesomeIcon

@@ -4,6 +4,7 @@ import { faCheck, faCopy, faPlus, faXmark, faFileArrowDown, faFileArrowUp } from
 import { buildSshConfigExport, parseSshConfigText } from '../lib/commandBuilder.js'
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
+import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
 export function SshConfigBlock({ state, dispatch }) {
@@ -40,6 +41,7 @@ export function SshConfigBlock({ state, dispatch }) {
     <section className="panel" aria-labelledby="ssh-config-heading">
       <h2 className="panel__legend" id="ssh-config-heading">
         {t(lang, 'sshConfig.title')}
+        <AnchorLink id="ssh-config-heading" section={t(lang, 'sshConfig.title')} lang={lang} />
       </h2>
       <p className="panel__hint">{t(lang, 'sshConfig.hint')}</p>
 
