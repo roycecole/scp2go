@@ -150,6 +150,9 @@ describe('other actions', () => {
   it('TOGGLE_OPTION flips a known option', () => {
     expect(reducer(initialState, { type: 'TOGGLE_OPTION', option: 'optChmod' }).optChmod).toBe(true)
   })
+  it('TOGGLE_OPTION flips optBackup', () => {
+    expect(reducer(initialState, { type: 'TOGGLE_OPTION', option: 'optBackup' }).optBackup).toBe(true)
+  })
   it('TOGGLE_OPTION ignores an unknown option', () => {
     expect(reducer(initialState, { type: 'TOGGLE_OPTION', option: 'notReal' })).toBe(initialState)
   })
@@ -194,6 +197,21 @@ describe('connection profiles', () => {
 
   it('SAVE_PROFILE ignores a blank name', () => {
     expect(reducer(withConnection, { type: 'SAVE_PROFILE', name: '   ' })).toBe(withConnection)
+  })
+
+  it('SAVE_PROFILE/LOAD_PROFILE round-trip jumpHost, optBackup, and healthCheckCommand', () => {
+    const withExtras = { ...withConnection, jumpHost: 'bastion.example.com', optBackup: true, healthCheckCommand: 'curl -f x' }
+    let state = reducer(withExtras, { type: 'SAVE_PROFILE', name: 'My Server' })
+    expect(state.profiles[0]).toMatchObject({
+      jumpHost: 'bastion.example.com',
+      optBackup: true,
+      healthCheckCommand: 'curl -f x',
+    })
+    const savedId = state.profiles[0].id
+    state = reducer({ ...state, jumpHost: '', optBackup: false, healthCheckCommand: '' }, { type: 'LOAD_PROFILE', id: savedId })
+    expect(state.jumpHost).toBe('bastion.example.com')
+    expect(state.optBackup).toBe(true)
+    expect(state.healthCheckCommand).toBe('curl -f x')
   })
 
   it('LOAD_PROFILE merges a saved snapshot into state, leaving files/theme/lang untouched', () => {

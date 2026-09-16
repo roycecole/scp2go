@@ -958,3 +958,160 @@ describe('sftp transport', () => {
     expect(script).toContain("<< 'SFTP_EOF'")
   })
 })
+
+describe('jump host (-J)', () => {
+  it('absent by default', () => {
+    expect(stepsById(buildSteps(baseState)).upload.plainText).not.toContain('-J')
+  })
+
+  it('present on the scp transfer, right after any -r', () => {
+    const step = stepsById(buildSteps({ ...baseState, jumpHost: 'bastion.example.com' })).upload
+    expect(step.plainText).toContain('scp -J bastion.example.com -P 22')
+  })
+
+  it('present on the rsync transfer, inside the -e "ssh ..." preamble', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', jumpHost: 'bastion.example.com' })).upload
+    expect(step.plainText).toContain('-e "ssh -J bastion.example.com -p 22')
+  })
+
+  it('present on the sftp invocation', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'sftp', jumpHost: 'bastion.example.com' })).upload
+    expect(step.plainText).toContain('-b - -J bastion.example.com -P 22')
+  })
+
+  it('present on every plain ssh-based step (test connection, mkdir, chmod, restart)', () => {
+    const state = {
+      ...baseState,
+      jumpHost: 'bastion.example.com',
+      optTestConn: true,
+      restartCommand: 'echo hi',
+    }
+    const steps = stepsById(buildSteps(state))
+    expect(steps.testConn.plainText).toBe(
+      'ssh -J bastion.example.com -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40 "echo OK"'
+    )
+    expect(steps.mkdir.plainText).toContain('ssh -J bastion.example.com -p 22')
+    expect(steps.chmod.plainText).toContain('ssh -J bastion.example.com -p 22')
+    expect(steps.restart.plainText).toContain('ssh -J bastion.example.com -p 22')
+  })
+
+  it('has no effect when blank/whitespace-only', () => {
+    expect(stepsById(buildSteps({ ...baseState, jumpHost: '   ' })).upload.plainText).not.toContain('-J')
+  })
+})
+
+describe('ssh-add (load key into agent)', () => {
+  it('absent by default', () => {
+    expect(buildSteps(baseState).find((s) => s.id === 'sshAdd')).toBeUndefined()
+  })
+
+  it('absent without a key path, even with agent forwarding on', () => {
+    const state = { ...baseState, key: '', optAgentForward: true }
+    expect(buildSteps(state).find((s) => s.id === 'sshAdd')).toBeUndefined()
+  })
+
+  it('absent with a key but agent forwarding off', () => {
+    expect(buildSteps(baseState).find((s) => s.id === 'sshAdd')).toBeUndefined()
+  })
+
+  it('present when both a key and agent forwarding are on', () => {
+    const step = stepsById(buildSteps({ ...baseState, optAgentForward: true })).sshAdd
+    expect(step.plainText).toBe('ssh-add C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key')
+  })
+
+  it('appears before sshLogin in the step order', () => {
+    const steps = buildSteps({ ...baseState, optAgentForward: true, optSshLogin: true })
+    const ids = steps.map((s) => s.id)
+    expect(ids.indexOf('sshAdd')).toBeLessThan(ids.indexOf('sshLogin'))
+  })
+})
+
+describe('backup existing files before overwrite', () => {
+  it('absent by default', () => {
+    expect(buildSteps({ ...baseState, files: [{ name: 'a.txt', isDir: false }] }).find((s) => s.id === 'backup')).toBeUndefined()
+  })
+
+  it('absent in download direction even with the toggle on', () => {
+    const state = { ...baseState, direction: 'download', optBackup: true }
+    expect(buildSteps(state).find((s) => s.id === 'backup')).toBeUndefined()
+  })
+
+  it('absent when there are no files', () => {
+    const state = { ...baseState, optBackup: true, files: [] }
+    expect(buildSteps(state).find((s) => s.id === 'backup')).toBeUndefined()
+  })
+
+  it('mv-renames each destination file to a shared, timestamped .bak (ssh-based transports)', () => {
+    const step = stepsById(buildSteps({ ...baseState, optBackup: true, files: [{ name: 'app.js', isDir: false }] })).backup
+    expect(step.plainText).toBe(
+      'ssh -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40 ' +
+        '"ts=`$(date +%Y%m%d%H%M%S); mv ~/.ssh/app.js ~/.ssh/app.js.bak.`$ts 2>/dev/null || true"'
+    )
+  })
+
+  it('uses backslash (not backtick) to escape $ on POSIX clients', () => {
+    const step = stepsById(
+      buildSteps({ ...baseState, os: 'nix', optBackup: true, files: [{ name: 'app.js', isDir: false }] })
+    ).backup
+    expect(step.plainText).toContain('ts=\\$(date')
+    expect(step.plainText).toContain('.bak.\\$ts')
+  })
+
+  it('backs up every file, sharing one timestamp variable', () => {
+    const step = stepsById(buildSteps({ ...baseState, optBackup: true })).backup
+    expect(step.plainText).toContain('mv ~/.ssh/id_ed25519_roycecole ~/.ssh/id_ed25519_roycecole.bak.`$ts')
+    expect(step.plainText).toContain('mv ~/.ssh/config ~/.ssh/config.bak.`$ts')
+    // Only one `ts=` assignment for the whole step, not one per file.
+    expect(step.plainText.match(/ts=/g)).toHaveLength(1)
+  })
+
+  it('sftp: static .bak per file — no $(date ...), since batch mode has no shell substitution', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'sftp', optBackup: true })).backup
+    expect(step.plainText).toContain('-rename ~/.ssh/id_ed25519_roycecole ~/.ssh/id_ed25519_roycecole.bak')
+    expect(step.plainText).toContain('-rename ~/.ssh/config ~/.ssh/config.bak')
+    expect(step.plainText).not.toContain('date')
+    expect(step.plainText).not.toContain('$')
+  })
+
+  it('sits between mkdir and the transfer step', () => {
+    const steps = buildSteps({ ...baseState, optBackup: true })
+    expect(steps.map((s) => s.id)).toEqual(['mkdir', 'backup', 'upload', 'chmod'])
+  })
+})
+
+describe('health check', () => {
+  it('absent by default', () => {
+    expect(buildSteps(baseState).find((s) => s.id === 'healthCheck')).toBeUndefined()
+  })
+
+  it('wraps the command in an ssh call, last in the list', () => {
+    const steps = buildSteps({ ...baseState, healthCheckCommand: 'curl -f http://localhost:3000/health' })
+    const last = steps[steps.length - 1]
+    expect(last.id).toBe('healthCheck')
+    expect(last.plainText).toBe(
+      'ssh -p 22 -i C:\\Users\\you\\.ssh\\SimpleService_OracleCloud.key ubuntu@161.33.35.40 "curl -f http://localhost:3000/health"'
+    )
+  })
+
+  it('runs after restart when both are set', () => {
+    const steps = buildSteps({ ...baseState, restartCommand: 'systemctl restart myapp', healthCheckCommand: 'curl -f http://x' })
+    const ids = steps.map((s) => s.id)
+    expect(ids.indexOf('restart')).toBeLessThan(ids.indexOf('healthCheck'))
+    expect(ids[ids.length - 1]).toBe('healthCheck')
+  })
+
+  it('escapes an embedded double quote so it cannot break out of the outer string', () => {
+    const step = stepsById(buildSteps({ ...baseState, healthCheckCommand: 'echo "ok"' })).healthCheck
+    expect(step.plainText).toContain('"echo \\"ok\\""')
+  })
+
+  it('blank/whitespace-only command produces no step', () => {
+    expect(buildSteps({ ...baseState, healthCheckCommand: '   ' }).find((s) => s.id === 'healthCheck')).toBeUndefined()
+  })
+
+  it('is available in download mode too', () => {
+    expect(
+      buildSteps({ ...baseState, direction: 'download', healthCheckCommand: 'echo done' }).find((s) => s.id === 'healthCheck')
+    ).toBeDefined()
+  })
+})

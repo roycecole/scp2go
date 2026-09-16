@@ -9,6 +9,13 @@ const RESTART_PRESETS = [
   'pm2 restart myapp',
 ]
 
+const HEALTH_CHECK_PRESETS = [
+  'curl -f http://localhost:3000/health',
+  'curl -fs http://localhost/ -o /dev/null',
+  'systemctl is-active myapp',
+  'docker ps --filter name=myapp --filter status=running -q',
+]
+
 function PresetChipRow({ lang, presets, onPick }) {
   return (
     <div className="preset-chip-row">
@@ -71,6 +78,24 @@ export function DeploySection({ state, dispatch }) {
             lang={lang}
             presets={RESTART_PRESETS}
             onPick={(cmd) => dispatch({ type: 'SET_FIELD', field: 'restartCommand', value: cmd })}
+          />
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor="healthCheckCommand">
+            {t(lang, 'deploy.healthCheck.label')}
+          </label>
+          <input
+            id="healthCheckCommand"
+            type="text"
+            placeholder={t(lang, 'deploy.healthCheck.placeholder')}
+            value={state.healthCheckCommand}
+            onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'healthCheckCommand', value: e.target.value })}
+            autoComplete="off"
+          />
+          <PresetChipRow
+            lang={lang}
+            presets={HEALTH_CHECK_PRESETS}
+            onPick={(cmd) => dispatch({ type: 'SET_FIELD', field: 'healthCheckCommand', value: cmd })}
           />
         </div>
       </div>

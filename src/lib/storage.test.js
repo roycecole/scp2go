@@ -47,6 +47,12 @@ describe('loadState / saveState', () => {
     expect(loadState().transport).toBe('sftp')
   })
 
+  it('round-trips jumpHost, optBackup, and healthCheckCommand', () => {
+    const state = { ...initialState, jumpHost: 'bastion.example.com', optBackup: true, healthCheckCommand: 'curl -f x' }
+    saveState(state)
+    expect(loadState()).toMatchObject({ jumpHost: 'bastion.example.com', optBackup: true, healthCheckCommand: 'curl -f x' })
+  })
+
   it('round-trips file size/lastModified metadata when present', () => {
     const state = { ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, size: 2048, lastModified: 1757894400000 }] }
     saveState(state)

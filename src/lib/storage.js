@@ -66,6 +66,7 @@ function sanitizeProfileField(field, value) {
     case 'optSshLogin':
     case 'optAgentForward':
     case 'optChecksum':
+    case 'optBackup':
       return bool(value, /** @type {any} */ (initialState)[field])
     default:
       return str(/** @type {any} */ (value), /** @type {any} */ (initialState)[field])
@@ -126,6 +127,7 @@ function sanitize(raw) {
     os: OS_VALUES.has(raw.os) ? raw.os : initialState.os,
     transport: TRANSPORTS.has(raw.transport) ? raw.transport : initialState.transport,
     direction: DIRECTIONS.has(raw.direction) ? raw.direction : initialState.direction,
+    jumpHost: str(raw.jumpHost, initialState.jumpHost),
     optMkdir: bool(raw.optMkdir, initialState.optMkdir),
     optRecursive: bool(raw.optRecursive, initialState.optRecursive),
     optChmod: bool(raw.optChmod, initialState.optChmod),
@@ -139,10 +141,12 @@ function sanitize(raw) {
     optSshLogin: bool(raw.optSshLogin, initialState.optSshLogin),
     optAgentForward: bool(raw.optAgentForward, initialState.optAgentForward),
     optChecksum: bool(raw.optChecksum, initialState.optChecksum),
+    optBackup: bool(raw.optBackup, initialState.optBackup),
     excludePatterns: str(raw.excludePatterns, initialState.excludePatterns),
     configAlias: str(raw.configAlias, initialState.configAlias),
     buildCommand: str(raw.buildCommand, initialState.buildCommand),
     restartCommand: str(raw.restartCommand, initialState.restartCommand),
+    healthCheckCommand: str(raw.healthCheckCommand, initialState.healthCheckCommand),
     theme: THEMES.has(raw.theme) ? raw.theme : initialState.theme,
     lang: LANGS.has(raw.lang) ? raw.lang : initialState.lang,
     profiles: sanitizeProfiles(raw.profiles),

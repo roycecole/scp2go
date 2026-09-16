@@ -55,6 +55,22 @@ export function ConnectionForm({ state, dispatch }) {
           />
         </div>
       </div>
+
+      <div className="field-row panel__section">
+        <div className="field">
+          <label className="field__label" htmlFor="jumpHost">
+            {t(lang, 'connection.jumpHost.label')}
+          </label>
+          <input
+            id="jumpHost"
+            type="text"
+            placeholder={t(lang, 'connection.jumpHost.placeholder')}
+            value={state.jumpHost}
+            onChange={setField('jumpHost')}
+            autoComplete="off"
+          />
+        </div>
+      </div>
     </fieldset>
   )
 }

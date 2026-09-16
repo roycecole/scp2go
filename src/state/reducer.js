@@ -20,6 +20,7 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
   'os',
   'transport',
   'direction',
+  'jumpHost',
   'optMkdir',
   'optRecursive',
   'optChmod',
@@ -33,10 +34,12 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
   'optSshLogin',
   'optAgentForward',
   'optChecksum',
+  'optBackup',
   'excludePatterns',
   'configAlias',
   'buildCommand',
   'restartCommand',
+  'healthCheckCommand',
 ])
 
 /**
@@ -51,6 +54,7 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {'win'|'nix'} os
  * @property {'scp'|'rsync'|'sftp'} transport
  * @property {Direction} direction
+ * @property {string} jumpHost
  * @property {boolean} optMkdir
  * @property {boolean} optRecursive
  * @property {boolean} optChmod
@@ -64,10 +68,12 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {boolean} optSshLogin
  * @property {boolean} optAgentForward
  * @property {boolean} optChecksum
+ * @property {boolean} optBackup
  * @property {string} excludePatterns
  * @property {string} configAlias
  * @property {string} buildCommand
  * @property {string} restartCommand
+ * @property {string} healthCheckCommand
  * @property {'system'|'light'|'dark'} theme
  * @property {'zh-Hant'|'en'} lang
  * @property {Array<{id: string, name: string} & Record<string, any>>} profiles
@@ -86,6 +92,7 @@ export const initialState = {
   os: 'win',
   transport: 'scp',
   direction: 'upload',
+  jumpHost: '',
   optMkdir: false,
   optRecursive: false,
   optChmod: false,
@@ -99,10 +106,12 @@ export const initialState = {
   optSshLogin: false,
   optAgentForward: false,
   optChecksum: false,
+  optBackup: false,
   excludePatterns: '',
   configAlias: '',
   buildCommand: '',
   restartCommand: '',
+  healthCheckCommand: '',
   theme: 'system',
   lang: 'zh-Hant',
   profiles: [],
@@ -123,6 +132,7 @@ const TOGGLE_OPTIONS = new Set([
   'optSshLogin',
   'optAgentForward',
   'optChecksum',
+  'optBackup',
 ])
 const THEMES = new Set(['system', 'light', 'dark'])
 const LANGS = new Set(['zh-Hant', 'en'])

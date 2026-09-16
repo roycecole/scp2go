@@ -184,12 +184,18 @@ function push(tokens, type, text) {
 }
 
 /**
- * Push the shared `-p <port> [-i <key>] user@host` fragment used by every
- * ssh-based step (test connection, remote mkdir, chmod).
+ * Push the shared `[-J <jump>] -p <port> [-i <key>] user@host` fragment used
+ * by every ssh-based step (test connection, remote mkdir, chmod, restart,
+ * health check). `-J` goes first, matching how `-A` is already placed before
+ * this fragment in the login step — one predictable flag order everywhere.
  * @param {Token[]} tokens
- * @param {{ port: string, key: string, os: ClientOs, user: string, host: string }} p
+ * @param {{ port: string, key: string, os: ClientOs, user: string, host: string, jumpHost: string }} p
  */
-function pushSshTarget(tokens, { port, key, os, user, host }) {
+function pushSshTarget(tokens, { port, key, os, user, host, jumpHost }) {
+  if (jumpHost) {
+    push(tokens, 'flag', '-J')
+    push(tokens, 'value', quoteLocal(jumpHost, os))
+  }
   push(tokens, 'flag', '-p')
   push(tokens, 'value', port)
   if (key) {
@@ -225,6 +231,10 @@ function buildSftpBatchTokens(ctx, lines) {
     push(tokens, 'cmd', 'sftp')
     push(tokens, 'flag', '-b')
     push(tokens, 'value', '-')
+    if (ctx.jumpHost) {
+      push(tokens, 'flag', '-J')
+      push(tokens, 'value', quoteLocal(ctx.jumpHost, ctx.os))
+    }
     push(tokens, 'flag', '-P')
     push(tokens, 'value', ctx.port)
     if (ctx.key) {
@@ -257,12 +267,12 @@ function tokensToPlainText(tokens) {
  * @typedef {{
  *   direction: Direction, os: ClientOs, transport: Transport, port: string,
  *   user: string, dest: string, key: string, srcDir: string, files: FileEntry[],
- *   host: string, optMkdir: boolean, optRecursive: boolean, optChmod: boolean,
+ *   host: string, jumpHost: string, optMkdir: boolean, optRecursive: boolean, optChmod: boolean,
  *   optTestConn: boolean, optDryRun: boolean, optIcaclsFix: boolean,
  *   optDelete: boolean, optProgress: boolean, optKnownHosts: boolean,
  *   optPartial: boolean, optSshLogin: boolean, optAgentForward: boolean,
- *   optChecksum: boolean, excludePatterns: string, buildCommand: string,
- *   restartCommand: string,
+ *   optChecksum: boolean, optBackup: boolean, excludePatterns: string, buildCommand: string,
+ *   restartCommand: string, healthCheckCommand: string,
  * }} StepContext
  */
 
@@ -340,6 +350,23 @@ function buildTestConnStep(ctx) {
 }
 
 /**
+ * Loads the identity key into the local ssh-agent before logging in — a
+ * prerequisite for Agent Forwarding (-A) to actually have anything to
+ * forward. Shown alongside it, and only when a key path is set (with no
+ * path, ssh-add would fall back to trying every default key instead of the
+ * one this tool actually knows about, which isn't worth surfacing here).
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildSshAddStep(ctx) {
+  if (!(ctx.optAgentForward && ctx.key)) return null
+  const tokens = []
+  push(tokens, 'cmd', 'ssh-add')
+  push(tokens, 'value', quoteLocal(ctx.key, ctx.os))
+  return { id: 'sshAdd', label: '將金鑰加入 ssh-agent', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
  * A bare, interactive `ssh user@host` login — no trailing command, so it
  * drops the user into a remote shell instead of running non-interactively
  * and returning like testConn does. Available in both directions.
@@ -372,6 +399,24 @@ function buildRestartStep(ctx) {
   pushSshTarget(tokens, ctx)
   push(tokens, 'string', `"${cmd.replace(/"/g, '\\"')}"`)
   return { id: 'restart', label: '重啟遠端服務', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
+ * Verifies the deploy actually came up, last in the sequence — same
+ * verbatim-passthrough treatment as the restart command, since this is
+ * equally arbitrary user-authored shell text (a curl check, a systemctl
+ * is-active, whatever fits their setup).
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildHealthCheckStep(ctx) {
+  const cmd = (ctx.healthCheckCommand || '').trim()
+  if (!cmd) return null
+  const tokens = []
+  push(tokens, 'cmd', 'ssh')
+  pushSshTarget(tokens, ctx)
+  push(tokens, 'string', `"${cmd.replace(/"/g, '\\"')}"`)
+  return { id: 'healthCheck', label: '健康檢查', tokens, plainText: tokensToPlainText(tokens) }
 }
 
 /**
@@ -428,6 +473,49 @@ function buildMkdirStep(ctx) {
 }
 
 /**
+ * Renames each about-to-be-overwritten destination file out of the way
+ * right before the transfer writes over it (upload only) — a quick
+ * rollback point if the new version turns out to be broken. A file that
+ * doesn't exist yet (first deploy) is silently skipped rather than
+ * aborting the step, the same idempotency concern sftp's own `-mkdir`
+ * already handles above.
+ *
+ * The `$` in `$ts`/`$(date ...)` has to survive the *local* shell's own
+ * parsing of this double-quoted ssh argument before ssh ever sends it to
+ * the remote shell — escaped the same way an embedded `"` already is
+ * elsewhere in this file: backslash for POSIX, backtick for PowerShell.
+ * sftp's batch grammar has no shell substitution at all (it's not a
+ * shell), so it falls back to one rolling `.bak` per file instead of a
+ * timestamped history.
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildBackupStep(ctx) {
+  if (!(ctx.optBackup && ctx.direction === 'upload' && ctx.files.length > 0)) return null
+
+  if (ctx.transport === 'sftp') {
+    const lines = ctx.files.map((f) => {
+      const target = quoteSftpBatch(joinRemote(ctx.dest, f.name))
+      return `-rename ${target} ${target}.bak`
+    })
+    const tokens = buildSftpBatchTokens(ctx, lines)
+    return { id: 'backup', label: '備份現有檔案', tokens, plainText: tokensToPlainText(tokens) }
+  }
+
+  const tokens = []
+  push(tokens, 'cmd', 'ssh')
+  pushSshTarget(tokens, ctx)
+  const esc = ctx.os === 'win' ? '`$' : '\\$'
+  const moves = ctx.files.map((f) => {
+    const target = quoteNested(joinRemote(ctx.dest, f.name))
+    return `mv ${target} ${target}.bak.${esc}ts 2>/dev/null || true`
+  })
+  const inner = [`ts=${esc}(date +%Y%m%d%H%M%S)`, ...moves].join('; ')
+  push(tokens, 'string', `"${inner}"`)
+  return { id: 'backup', label: '備份現有檔案', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
  * sftp's `put`/`get` take exactly one local/remote path pair per call, so
  * unlike scp/rsync there is no single invocation covering every selected
  * file — each becomes its own batch line in one sftp session instead.
@@ -479,6 +567,7 @@ function buildTransferStep(ctx) {
     srcDir,
     files,
     direction,
+    jumpHost,
     optRecursive,
     optDryRun,
     optDelete,
@@ -493,6 +582,10 @@ function buildTransferStep(ctx) {
   if (transport === 'scp') {
     push(tokens, 'cmd', 'scp')
     if (hasFolder || optRecursive) push(tokens, 'flag', '-r')
+    if (jumpHost) {
+      push(tokens, 'flag', '-J')
+      push(tokens, 'value', quoteLocal(jumpHost, os))
+    }
     push(tokens, 'flag', '-P')
     push(tokens, 'value', port)
     if (key) {
@@ -511,7 +604,9 @@ function buildTransferStep(ctx) {
     if (optProgress) push(tokens, 'flag', '--progress')
     if (optDryRun) push(tokens, 'flag', '--dry-run')
     push(tokens, 'flag', '-e')
-    let sshInner = `ssh -p ${port}`
+    let sshInner = 'ssh'
+    if (jumpHost) sshInner += ` -J ${quoteNested(jumpHost)}`
+    sshInner += ` -p ${port}`
     if (key) sshInner += ` -i ${quoteNested(key)}`
     push(tokens, 'string', `"${sshInner}"`)
   }
@@ -612,6 +707,7 @@ export function buildSteps(state) {
     srcDir: state.srcDir || '',
     files: Array.isArray(state.files) ? state.files : [],
     host,
+    jumpHost: (state.jumpHost || '').trim(),
     optMkdir: Boolean(state.optMkdir),
     optRecursive: Boolean(state.optRecursive),
     optChmod: Boolean(state.optChmod),
@@ -625,9 +721,11 @@ export function buildSteps(state) {
     optSshLogin: Boolean(state.optSshLogin),
     optAgentForward: Boolean(state.optAgentForward),
     optChecksum: Boolean(state.optChecksum),
+    optBackup: Boolean(state.optBackup),
     excludePatterns: state.excludePatterns || '',
     buildCommand: state.buildCommand || '',
     restartCommand: state.restartCommand || '',
+    healthCheckCommand: state.healthCheckCommand || '',
   }
 
   const steps = []
@@ -637,10 +735,16 @@ export function buildSteps(state) {
   if (knownHosts) steps.push(knownHosts)
   const testConn = buildTestConnStep(ctx)
   if (testConn) steps.push(testConn)
+  const sshAdd = buildSshAddStep(ctx)
+  if (sshAdd) steps.push(sshAdd)
   const sshLogin = buildSshLoginStep(ctx)
   if (sshLogin) steps.push(sshLogin)
   const mkdir = buildMkdirStep(ctx)
   if (mkdir) steps.push(mkdir)
+  if (ctx.direction === 'upload') {
+    const backup = buildBackupStep(ctx)
+    if (backup) steps.push(backup)
+  }
   steps.push(buildTransferStep(ctx))
   if (ctx.direction === 'upload') {
     const chmod = buildChmodStep(ctx)
@@ -650,6 +754,8 @@ export function buildSteps(state) {
   if (icacls) steps.push(icacls)
   const restart = buildRestartStep(ctx)
   if (restart) steps.push(restart)
+  const healthCheck = buildHealthCheckStep(ctx)
+  if (healthCheck) steps.push(healthCheck)
 
   return steps
 }

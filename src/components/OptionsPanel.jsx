@@ -66,6 +66,15 @@ export function OptionsPanel({ state, dispatch }) {
             description={t(lang, 'options.chmod.desc')}
           />
         ) : null}
+        {!isDownload ? (
+          <ToggleSwitch
+            id="optBackup"
+            checked={state.optBackup}
+            onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optBackup' })}
+            label={t(lang, 'options.backup.label')}
+            description={t(lang, 'options.backup.desc')}
+          />
+        ) : null}
         <ToggleSwitch
           id="optTestConn"
           checked={state.optTestConn}
