@@ -15,8 +15,9 @@ import {
   faSort,
   faSortUp,
   faSortDown,
+  faMagnifyingGlass,
 } from '@fortawesome/free-solid-svg-icons'
-import { formatFileSize, formatFileDate, sortFiles, getFileCategory } from '../lib/fileFormat.js'
+import { formatFileSize, formatFileDate, sortFiles, getFileCategory, filterFiles } from '../lib/fileFormat.js'
 import { isSensitiveFilename } from '../lib/sensitiveFiles.js'
 import { t } from '../lib/i18n.js'
 
@@ -47,8 +48,9 @@ function fileIcon(file) {
 export function FileTable({ files, lang, onRemove }) {
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [query, setQuery] = useState('')
 
-  const sorted = useMemo(() => sortFiles(files, sortKey, sortDir, lang), [files, sortKey, sortDir, lang])
+  const sorted = useMemo(() => sortFiles(filterFiles(files, query), sortKey, sortDir, lang), [files, query, sortKey, sortDir, lang])
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -60,7 +62,19 @@ export function FileTable({ files, lang, onRemove }) {
   }
 
   return (
-    <div className="file-table__wrapper">
+    <>
+      <div className="file-table__filter">
+        <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t(lang, 'fileTable.filter.placeholder')}
+          aria-label={t(lang, 'fileTable.filter.label')}
+          autoComplete="off"
+        />
+      </div>
+      <div className="file-table__wrapper">
       <table className="file-table">
         <thead>
           <tr>
@@ -85,6 +99,13 @@ export function FileTable({ files, lang, onRemove }) {
           </tr>
         </thead>
         <tbody>
+          {sorted.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="file-table__empty">
+                {t(lang, 'fileTable.filter.noMatch')}
+              </td>
+            </tr>
+          ) : null}
           {sorted.map((file) => {
             const sensitive = !file.isDir && isSensitiveFilename(file.name)
             return (
@@ -121,6 +142,7 @@ export function FileTable({ files, lang, onRemove }) {
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   )
 }

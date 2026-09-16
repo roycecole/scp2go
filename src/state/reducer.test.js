@@ -119,6 +119,30 @@ describe('CLEAR_FILES', () => {
   })
 })
 
+describe('RESTORE_FILES (undo for clear-all)', () => {
+  it('restores the snapshot verbatim, ids and addedAt included', () => {
+    let state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'a.txt', isDir: false }] })
+    const snapshot = state.files
+    state = reducer(state, { type: 'CLEAR_FILES' })
+    state = reducer(state, { type: 'RESTORE_FILES', files: snapshot })
+    expect(state.files).toEqual(snapshot)
+  })
+
+  it('merges with files added during the undo window, snapshot first, deduped by id', () => {
+    let state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'a.txt', isDir: false }] })
+    const snapshot = state.files
+    state = reducer(state, { type: 'CLEAR_FILES' })
+    state = reducer(state, { type: 'ADD_FILES', files: [{ name: 'b.txt', isDir: false }] })
+    state = reducer(state, { type: 'RESTORE_FILES', files: snapshot })
+    expect(state.files.map((f) => f.name)).toEqual(['a.txt', 'b.txt'])
+  })
+
+  it('is a no-op for an empty or non-array payload', () => {
+    expect(reducer(initialState, { type: 'RESTORE_FILES', files: [] })).toBe(initialState)
+    expect(reducer(initialState, { type: 'RESTORE_FILES', files: 'nope' })).toBe(initialState)
+  })
+})
+
 describe('APPLY_PRESET', () => {
   it('oracle preset sets user/port/dest and enables known-hosts + test-connection', () => {
     const state = reducer({ ...initialState, user: 'x', port: '2222', dest: '/tmp' }, { type: 'APPLY_PRESET', preset: 'oracle' })

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTrashCan } from '@fortawesome/free-solid-svg-icons'
 import { FileDropZone } from './FileDropZone.jsx'
@@ -17,6 +18,26 @@ export function FileSourceSection({ state, dispatch }) {
   const isDownload = state.direction === 'download'
   const handleAddFiles = (files) => dispatch({ type: 'ADD_FILES', files })
   const handleRemove = (id) => dispatch({ type: 'REMOVE_FILE', id })
+
+  // Undo window for clear-all: hold the snapshot locally for a few seconds
+  // so a slip of the finger doesn't wipe a carefully assembled list.
+  const [cleared, setCleared] = useState(null)
+  const undoTimer = useRef(null)
+  useEffect(() => () => clearTimeout(undoTimer.current), [])
+
+  const handleClearAll = () => {
+    setCleared(state.files)
+    dispatch({ type: 'CLEAR_FILES' })
+    clearTimeout(undoTimer.current)
+    undoTimer.current = setTimeout(() => setCleared(null), 6000)
+  }
+
+  const handleUndo = () => {
+    if (!cleared) return
+    dispatch({ type: 'RESTORE_FILES', files: cleared })
+    clearTimeout(undoTimer.current)
+    setCleared(null)
+  }
 
   return (
     <fieldset className="panel">
@@ -59,18 +80,22 @@ export function FileSourceSection({ state, dispatch }) {
       {state.files.length > 0 ? (
         <>
           <div className="file-list__header">
-            <button
-              type="button"
-              className="btn btn--sm"
-              accessKey="x"
-              onClick={() => dispatch({ type: 'CLEAR_FILES' })}
-            >
+            <button type="button" className="btn btn--sm" accessKey="x" onClick={handleClearAll}>
               <FontAwesomeIcon icon={faTrashCan} aria-hidden="true" />
               {t(lang, 'fileSource.clearAll')}
             </button>
           </div>
           <FileTable files={state.files} lang={lang} onRemove={handleRemove} />
         </>
+      ) : null}
+
+      {cleared ? (
+        <div className="undo-bar" role="status">
+          <span>{t(lang, 'fileSource.cleared', { count: String(cleared.length) })}</span>
+          <button type="button" className="btn btn--sm" onClick={handleUndo}>
+            {t(lang, 'fileSource.undo')}
+          </button>
+        </div>
       ) : null}
     </fieldset>
   )

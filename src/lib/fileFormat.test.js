@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFileSize, formatFileDate, sortFiles, getFileCategory } from './fileFormat.js'
+import { formatFileSize, formatFileDate, sortFiles, getFileCategory, filterFiles } from './fileFormat.js'
 
 describe('formatFileSize', () => {
   it('formats bytes under 1024 as plain bytes', () => {
@@ -116,5 +116,23 @@ describe('getFileCategory', () => {
   })
   it('matches only the final extension, e.g. a .tar.gz archive is archive, not "tar"', () => {
     expect(getFileCategory('backup.tar.gz')).toBe('archive')
+  })
+})
+
+describe('filterFiles', () => {
+  const files = [{ name: 'app.js' }, { name: 'README.md' }, { name: 'Photo.PNG' }]
+
+  it('returns the same array reference for a blank query', () => {
+    expect(filterFiles(files, '')).toBe(files)
+    expect(filterFiles(files, '   ')).toBe(files)
+  })
+
+  it('filters case-insensitively by substring', () => {
+    expect(filterFiles(files, 'png').map((f) => f.name)).toEqual(['Photo.PNG'])
+    expect(filterFiles(files, 'read').map((f) => f.name)).toEqual(['README.md'])
+  })
+
+  it('returns an empty array when nothing matches', () => {
+    expect(filterFiles(files, 'zzz')).toEqual([])
   })
 })

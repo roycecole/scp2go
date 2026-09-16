@@ -50,6 +50,9 @@ export function OutputPanel({ state }) {
               <FontAwesomeIcon icon={copiedAll ? faCheck : faCopy} aria-hidden="true" />
               {copiedAll ? t(lang, 'output.copyAll.done') : t(lang, 'output.copyAll')}
             </button>
+            <span className="visually-hidden" role="status">
+              {copiedAll ? t(lang, 'output.copiedAnnounce') : ''}
+            </span>
             <button type="button" className="btn btn--sm" accessKey="e" onClick={handleExportScript}>
               <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
               {t(lang, 'output.exportScript')}

@@ -3,6 +3,7 @@ import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ToggleSwitch } from './primitives/ToggleSwitch.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
 import { AnchorLink } from './AnchorLink.jsx'
+import { isValidBwLimit } from '../lib/validators.js'
 import { t } from '../lib/i18n.js'
 
 const TRANSPORT_OPTIONS = [
@@ -79,6 +80,15 @@ export function OptionsPanel({ state, dispatch }) {
             description={t(lang, 'options.backup.desc')}
           />
         ) : null}
+        {!isDownload ? (
+          <ToggleSwitch
+            id="optTarBundle"
+            checked={state.optTarBundle}
+            onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optTarBundle' })}
+            label={t(lang, 'options.tarBundle.label')}
+            description={t(lang, 'options.tarBundle.desc')}
+          />
+        ) : null}
         <ToggleSwitch
           id="optTestConn"
           checked={state.optTestConn}
@@ -111,6 +121,13 @@ export function OptionsPanel({ state, dispatch }) {
         />
         {state.transport === 'rsync' ? (
           <>
+            <ToggleSwitch
+              id="optCompress"
+              checked={state.optCompress}
+              onChange={() => dispatch({ type: 'TOGGLE_OPTION', option: 'optCompress' })}
+              label={t(lang, 'options.compress.label')}
+              description={t(lang, 'options.compress.desc')}
+            />
             <ToggleSwitch
               id="optPartial"
               checked={state.optPartial}
@@ -171,6 +188,38 @@ export function OptionsPanel({ state, dispatch }) {
               placeholder={t(lang, 'options.excludePatterns.placeholder')}
               value={state.excludePatterns}
               onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'excludePatterns', value: e.target.value })}
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="bwLimit">
+              {t(lang, 'options.bwLimit.label')}
+            </label>
+            <input
+              id="bwLimit"
+              type="text"
+              placeholder={t(lang, 'options.bwLimit.placeholder')}
+              value={state.bwLimit}
+              onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'bwLimit', value: e.target.value })}
+              autoComplete="off"
+              aria-invalid={!isValidBwLimit(state.bwLimit)}
+            />
+            {!isValidBwLimit(state.bwLimit) ? (
+              <span className="field__error" role="alert">
+                {t(lang, 'validate.bwLimit')}
+              </span>
+            ) : null}
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="linkDest">
+              {t(lang, 'options.linkDest.label')}
+            </label>
+            <input
+              id="linkDest"
+              type="text"
+              placeholder={t(lang, 'options.linkDest.placeholder')}
+              value={state.linkDest}
+              onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'linkDest', value: e.target.value })}
               autoComplete="off"
             />
           </div>

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCheck, faCopy, faPlus, faXmark, faFileArrowDown, faFileArrowUp } from '@fortawesome/free-solid-svg-icons'
 import { buildSshConfigExport, parseSshConfigText } from '../lib/commandBuilder.js'
+import { buildWinScpIni, buildFileZillaXml } from '../lib/guiClients.js'
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
 import { AnchorLink } from './AnchorLink.jsx'
@@ -105,9 +106,28 @@ export function SshConfigBlock({ state, dispatch }) {
             <FontAwesomeIcon icon={copied ? faCheck : faCopy} aria-hidden="true" />
             {copied ? t(lang, 'output.copy.done') : t(lang, 'output.copy')}
           </button>
+          <span className="visually-hidden" role="status">
+            {copied ? t(lang, 'output.copiedAnnounce') : ''}
+          </span>
           <button type="button" className="btn btn--sm" onClick={() => downloadTextFile('ssh-config.txt', exportText)}>
             <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
             {t(lang, 'sshConfig.export')}
+          </button>
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => downloadTextFile('winscp-sites.ini', buildWinScpIni(entries))}
+          >
+            <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
+            {t(lang, 'sshConfig.exportWinScp')}
+          </button>
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => downloadTextFile('filezilla-sites.xml', buildFileZillaXml(entries), 'application/xml;charset=utf-8')}
+          >
+            <FontAwesomeIcon icon={faFileArrowDown} aria-hidden="true" />
+            {t(lang, 'sshConfig.exportFileZilla')}
           </button>
         </div>
       ) : null}

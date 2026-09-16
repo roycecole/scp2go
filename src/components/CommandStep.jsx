@@ -38,6 +38,9 @@ export function CommandStep({ step, lang }) {
           <FontAwesomeIcon icon={copied ? faCheck : faCopy} aria-hidden="true" />
           {copied ? t(lang, 'output.copy.done') : t(lang, 'output.copy')}
         </button>
+        <span className="visually-hidden" role="status">
+          {copied ? t(lang, 'output.copiedAnnounce') : ''}
+        </span>
       </div>
     </div>
   )

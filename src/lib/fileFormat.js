@@ -63,6 +63,19 @@ function numericOrFloor(v) {
   return typeof v === 'number' && Number.isFinite(v) ? v : -1
 }
 
+/**
+ * Case-insensitive substring filter over file names, for the table's
+ * search box. Returns the same array reference for a blank query — the
+ * unfiltered state.
+ * @param {Array<{name: string}>} files
+ * @param {string} query
+ */
+export function filterFiles(files, query) {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return files
+  return files.filter((f) => f.name.toLowerCase().includes(q))
+}
+
 /** @typedef {'image'|'archive'|'code'|'pdf'|'audio'|'video'|'document'|'file'} FileCategory */
 
 const EXTENSION_CATEGORIES = /** @type {const} */ ({

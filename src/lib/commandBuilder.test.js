@@ -1115,3 +1115,119 @@ describe('health check', () => {
     ).toBeDefined()
   })
 })
+
+describe('rsync -z compression toggle', () => {
+  it('defaults to on: -avz exactly as before', () => {
+    expect(stepsById(buildSteps({ ...baseState, transport: 'rsync' })).upload.plainText).toContain('rsync -avz ')
+  })
+  it('emits -av (no z) when turned off', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', optCompress: false })).upload
+    expect(step.plainText).toContain('rsync -av ')
+    expect(step.plainText).not.toContain('-avz')
+  })
+  it('a stored state missing the field still compresses (back-compat default)', () => {
+    const state = { ...baseState, transport: 'rsync' }
+    delete state.optCompress
+    expect(stepsById(buildSteps(state)).upload.plainText).toContain('rsync -avz ')
+  })
+})
+
+describe('rsync --bwlimit', () => {
+  it('absent by default', () => {
+    expect(stepsById(buildSteps({ ...baseState, transport: 'rsync' })).upload.plainText).not.toContain('--bwlimit')
+  })
+  it('emitted with the trimmed value when valid', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', bwLimit: ' 1.5m ' })).upload
+    expect(step.plainText).toContain('--bwlimit=1.5m')
+  })
+  it('a half-typed/invalid value is skipped rather than breaking the command', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', bwLimit: 'fast' })).upload
+    expect(step.plainText).not.toContain('--bwlimit')
+  })
+  it('has no effect on scp', () => {
+    expect(stepsById(buildSteps({ ...baseState, bwLimit: '5000' })).upload.plainText).not.toContain('--bwlimit')
+  })
+})
+
+describe('rsync --link-dest', () => {
+  it('absent by default', () => {
+    expect(stepsById(buildSteps({ ...baseState, transport: 'rsync' })).upload.plainText).not.toContain('--link-dest')
+  })
+  it('emitted with the path when set', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', linkDest: '../backup-prev' })).upload
+    expect(step.plainText).toContain('--link-dest=../backup-prev')
+  })
+  it('quotes a path containing whitespace', () => {
+    const step = stepsById(buildSteps({ ...baseState, transport: 'rsync', linkDest: '../old backup' })).upload
+    expect(step.plainText).toContain('--link-dest="../old backup"')
+  })
+})
+
+describe('tar bundle transfer', () => {
+  const bundleState = {
+    ...baseState,
+    os: 'nix',
+    key: '',
+    srcDir: '/home/you/dist',
+    dest: '/var/www/app',
+    files: [
+      { name: 'index.html', isDir: false },
+      { name: 'assets', isDir: true },
+    ],
+    optMkdir: false,
+    optChmod: false,
+    optTarBundle: true,
+  }
+
+  it('adds tarPack (local) and tarExtract (remote) around the transfer', () => {
+    const steps = buildSteps(bundleState)
+    expect(steps.map((s) => s.id)).toEqual(['tarPack', 'upload', 'tarExtract'])
+  })
+
+  it('tarPack archives the selected names relative to the source dir', () => {
+    const step = stepsById(buildSteps(bundleState)).tarPack
+    expect(step.plainText).toBe('tar -czf scp2go-bundle.tar.gz -C /home/you/dist index.html assets')
+  })
+
+  it('tarPack omits -C when no source dir is set', () => {
+    const step = stepsById(buildSteps({ ...bundleState, srcDir: '' })).tarPack
+    expect(step.plainText).toBe('tar -czf scp2go-bundle.tar.gz index.html assets')
+  })
+
+  it('the transfer carries only the archive from the current directory', () => {
+    const step = stepsById(buildSteps(bundleState)).upload
+    expect(step.plainText).toBe('scp -P 22 scp2go-bundle.tar.gz ubuntu@161.33.35.40:/var/www/app')
+  })
+
+  it('tarExtract unpacks into the destination and removes the archive', () => {
+    const step = stepsById(buildSteps(bundleState)).tarExtract
+    expect(step.plainText).toBe(
+      'ssh -p 22 ubuntu@161.33.35.40 "tar -xzf /var/www/app/scp2go-bundle.tar.gz -C /var/www/app && rm /var/www/app/scp2go-bundle.tar.gz"'
+    )
+  })
+
+  it('rsync: --delete is dropped while bundling, so the lone archive cannot wipe the destination', () => {
+    const step = stepsById(buildSteps({ ...bundleState, transport: 'rsync', optDelete: true })).upload
+    expect(step.plainText).not.toContain('--delete')
+    expect(step.plainText).toContain('scp2go-bundle.tar.gz')
+  })
+
+  it('sftp: puts just the archive', () => {
+    const step = stepsById(buildSteps({ ...bundleState, transport: 'sftp' })).upload
+    expect(step.plainText).toContain('put scp2go-bundle.tar.gz /var/www/app/scp2go-bundle.tar.gz')
+    expect(step.plainText).not.toContain('index.html')
+  })
+
+  it('ignored in download direction', () => {
+    const steps = buildSteps({ ...bundleState, direction: 'download' })
+    expect(steps.find((s) => s.id === 'tarPack')).toBeUndefined()
+    expect(steps.find((s) => s.id === 'tarExtract')).toBeUndefined()
+  })
+
+  it('chmod (when on) comes after extraction and still targets the real files', () => {
+    const steps = buildSteps({ ...bundleState, optChmod: true })
+    const ids = steps.map((s) => s.id)
+    expect(ids.indexOf('tarExtract')).toBeLessThan(ids.indexOf('chmod'))
+    expect(stepsById(steps).chmod.plainText).toContain('/var/www/app/index.html')
+  })
+})

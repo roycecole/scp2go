@@ -1,4 +1,5 @@
 // @ts-check
+import { isValidBwLimit } from './validators.js'
 
 /** @typedef {'win'|'nix'} ClientOs */
 /** @typedef {'scp'|'rsync'|'sftp'} Transport */
@@ -271,10 +272,17 @@ function tokensToPlainText(tokens) {
  *   optTestConn: boolean, optDryRun: boolean, optIcaclsFix: boolean,
  *   optDelete: boolean, optProgress: boolean, optKnownHosts: boolean,
  *   optPartial: boolean, optSshLogin: boolean, optAgentForward: boolean,
- *   optChecksum: boolean, optBackup: boolean, excludePatterns: string, buildCommand: string,
+ *   optChecksum: boolean, optBackup: boolean, optCompress: boolean, optTarBundle: boolean,
+ *   bwLimit: string, linkDest: string, excludePatterns: string, buildCommand: string,
  *   restartCommand: string, healthCheckCommand: string,
  * }} StepContext
  */
+
+/**
+ * Fixed name for the temporary archive the tar-bundle mode creates in the
+ * current directory, transfers, and removes again after remote extraction.
+ */
+const TAR_BUNDLE_NAME = 'scp2go-bundle.tar.gz'
 
 /**
  * The identity known_hosts stores/matches a host under: bare hostname on the
@@ -516,6 +524,48 @@ function buildBackupStep(ctx) {
 }
 
 /**
+ * Packs the selected files into one local tar.gz before transfer (upload
+ * only) — many small files move far faster as a single archive than as
+ * per-file transfers. Windows 10+ ships bsdtar as tar.exe, so the same
+ * command works in PowerShell. Paired with buildTarExtractStep below; the
+ * transfer step in between carries just the archive (see buildSteps).
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildTarPackStep(ctx) {
+  if (!(ctx.optTarBundle && ctx.direction === 'upload' && ctx.files.length > 0)) return null
+  const tokens = []
+  push(tokens, 'cmd', 'tar')
+  push(tokens, 'flag', '-czf')
+  push(tokens, 'value', TAR_BUNDLE_NAME)
+  if (ctx.srcDir.trim()) {
+    push(tokens, 'flag', '-C')
+    push(tokens, 'value', quoteLocal(ctx.srcDir.trim(), ctx.os))
+  }
+  for (const f of ctx.files) push(tokens, 'value', quoteLocal(f.name, ctx.os))
+  return { id: 'tarPack', label: '打包壓縮檔', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
+ * Unpacks the transferred archive into the destination on the remote host
+ * and removes it. Runs over plain ssh exec like the restart/health-check
+ * steps do — bundling inherently needs a remote shell, whichever transport
+ * carried the archive.
+ * @param {StepContext} ctx
+ * @returns {Step | null}
+ */
+function buildTarExtractStep(ctx) {
+  if (!(ctx.optTarBundle && ctx.direction === 'upload' && ctx.files.length > 0)) return null
+  const tokens = []
+  push(tokens, 'cmd', 'ssh')
+  pushSshTarget(tokens, ctx)
+  const archive = quoteNested(joinRemote(ctx.dest, TAR_BUNDLE_NAME))
+  const dest = quoteNested(ctx.dest)
+  push(tokens, 'string', `"tar -xzf ${archive} -C ${dest} && rm ${archive}"`)
+  return { id: 'tarExtract', label: '遠端解壓縮', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
  * sftp's `put`/`get` take exactly one local/remote path pair per call, so
  * unlike scp/rsync there is no single invocation covering every selected
  * file — each becomes its own batch line in one sftp session instead.
@@ -574,6 +624,9 @@ function buildTransferStep(ctx) {
     optProgress,
     optPartial,
     optChecksum,
+    optCompress,
+    bwLimit,
+    linkDest,
     excludePatterns,
   } = ctx
   const tokens = []
@@ -594,13 +647,17 @@ function buildTransferStep(ctx) {
     }
   } else {
     push(tokens, 'cmd', 'rsync')
-    push(tokens, 'flag', '-avz')
+    push(tokens, 'flag', optCompress ? '-avz' : '-av')
     if (optPartial) push(tokens, 'flag', '--partial')
     if (optChecksum) push(tokens, 'flag', '--checksum')
     if (optDelete) push(tokens, 'flag', '--delete')
+    if (linkDest.trim()) push(tokens, 'flag', `--link-dest=${quoteLocal(linkDest.trim(), os)}`)
     for (const pattern of parseExcludePatterns(excludePatterns)) {
       push(tokens, 'flag', `--exclude=${quoteExcludePattern(pattern, os)}`)
     }
+    // Emitted only when the value parses — a half-typed limit would
+    // otherwise abort the whole rsync run with an option error.
+    if (bwLimit.trim() && isValidBwLimit(bwLimit)) push(tokens, 'flag', `--bwlimit=${bwLimit.trim()}`)
     if (optProgress) push(tokens, 'flag', '--progress')
     if (optDryRun) push(tokens, 'flag', '--dry-run')
     push(tokens, 'flag', '-e')
@@ -722,6 +779,10 @@ export function buildSteps(state) {
     optAgentForward: Boolean(state.optAgentForward),
     optChecksum: Boolean(state.optChecksum),
     optBackup: Boolean(state.optBackup),
+    optCompress: state.optCompress !== false,
+    optTarBundle: Boolean(state.optTarBundle),
+    bwLimit: state.bwLimit || '',
+    linkDest: state.linkDest || '',
     excludePatterns: state.excludePatterns || '',
     buildCommand: state.buildCommand || '',
     restartCommand: state.restartCommand || '',
@@ -731,6 +792,8 @@ export function buildSteps(state) {
   const steps = []
   const build = buildBuildStep(ctx)
   if (build) steps.push(build)
+  const tarPack = buildTarPackStep(ctx)
+  if (tarPack) steps.push(tarPack)
   const knownHosts = buildKnownHostsStep(ctx)
   if (knownHosts) steps.push(knownHosts)
   const testConn = buildTestConnStep(ctx)
@@ -745,8 +808,16 @@ export function buildSteps(state) {
     const backup = buildBackupStep(ctx)
     if (backup) steps.push(backup)
   }
-  steps.push(buildTransferStep(ctx))
+  // With tar bundling, the transfer carries only the archive (packed into
+  // the current directory, so srcDir doesn't apply). rsync --delete is
+  // dropped for that transfer: its transfer set would be just the one
+  // temporary archive, so it would wipe everything else at the destination.
+  steps.push(
+    buildTransferStep(tarPack ? { ...ctx, files: [{ name: TAR_BUNDLE_NAME, isDir: false }], srcDir: '', optDelete: false } : ctx)
+  )
   if (ctx.direction === 'upload') {
+    const tarExtract = buildTarExtractStep(ctx)
+    if (tarExtract) steps.push(tarExtract)
     const chmod = buildChmodStep(ctx)
     if (chmod) steps.push(chmod)
   }

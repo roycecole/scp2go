@@ -67,6 +67,8 @@ function sanitizeProfileField(field, value) {
     case 'optAgentForward':
     case 'optChecksum':
     case 'optBackup':
+    case 'optCompress':
+    case 'optTarBundle':
       return bool(value, /** @type {any} */ (initialState)[field])
     default:
       return str(/** @type {any} */ (value), /** @type {any} */ (initialState)[field])
@@ -142,6 +144,10 @@ function sanitize(raw) {
     optAgentForward: bool(raw.optAgentForward, initialState.optAgentForward),
     optChecksum: bool(raw.optChecksum, initialState.optChecksum),
     optBackup: bool(raw.optBackup, initialState.optBackup),
+    optCompress: bool(raw.optCompress, initialState.optCompress),
+    optTarBundle: bool(raw.optTarBundle, initialState.optTarBundle),
+    bwLimit: str(raw.bwLimit, initialState.bwLimit),
+    linkDest: str(raw.linkDest, initialState.linkDest),
     excludePatterns: str(raw.excludePatterns, initialState.excludePatterns),
     configAlias: str(raw.configAlias, initialState.configAlias),
     buildCommand: str(raw.buildCommand, initialState.buildCommand),

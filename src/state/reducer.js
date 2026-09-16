@@ -35,6 +35,10 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
   'optAgentForward',
   'optChecksum',
   'optBackup',
+  'optCompress',
+  'optTarBundle',
+  'bwLimit',
+  'linkDest',
   'excludePatterns',
   'configAlias',
   'buildCommand',
@@ -69,6 +73,10 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {boolean} optAgentForward
  * @property {boolean} optChecksum
  * @property {boolean} optBackup
+ * @property {boolean} optCompress
+ * @property {boolean} optTarBundle
+ * @property {string} bwLimit
+ * @property {string} linkDest
  * @property {string} excludePatterns
  * @property {string} configAlias
  * @property {string} buildCommand
@@ -107,6 +115,10 @@ export const initialState = {
   optAgentForward: false,
   optChecksum: false,
   optBackup: false,
+  optCompress: true,
+  optTarBundle: false,
+  bwLimit: '',
+  linkDest: '',
   excludePatterns: '',
   configAlias: '',
   buildCommand: '',
@@ -133,6 +145,8 @@ const TOGGLE_OPTIONS = new Set([
   'optAgentForward',
   'optChecksum',
   'optBackup',
+  'optCompress',
+  'optTarBundle',
 ])
 const THEMES = new Set(['system', 'light', 'dark'])
 const LANGS = new Set(['zh-Hant', 'en'])
@@ -205,6 +219,17 @@ export function reducer(state, action) {
 
     case 'CLEAR_FILES':
       return state.files.length === 0 ? state : { ...state, files: [] }
+
+    case 'RESTORE_FILES': {
+      // Undo for CLEAR_FILES: the snapshot came straight out of this same
+      // state moments ago, so it's restored verbatim (original ids and
+      // addedAt included). Merged rather than assigned, so anything added
+      // during the undo window survives; dedupe mirrors ADD_FILES.
+      const restored = Array.isArray(action.files) ? action.files : []
+      if (restored.length === 0) return state
+      const ids = new Set(restored.map((f) => f.id))
+      return { ...state, files: [...restored, ...state.files.filter((f) => !ids.has(f.id))] }
+    }
 
     case 'APPLY_PRESET': {
       const patch = action.preset === 'sshkey' ? applySshKeyPreset(state) : applyOraclePreset()
