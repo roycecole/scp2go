@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFileSize, formatFileDate } from './fileFormat.js'
+import { formatFileSize, formatFileDate, sortFiles } from './fileFormat.js'
 
 describe('formatFileSize', () => {
   it('formats bytes under 1024 as plain bytes', () => {
@@ -35,5 +35,51 @@ describe('formatFileDate', () => {
   it('returns "" for invalid input', () => {
     expect(formatFileDate(undefined, 'en')).toBe('')
     expect(formatFileDate(NaN, 'en')).toBe('')
+  })
+})
+
+describe('sortFiles', () => {
+  const files = [
+    { name: 'banana.txt', size: 200, lastModified: 300, addedAt: 20 },
+    { name: 'Cherry.txt', size: 100, lastModified: 100, addedAt: 30 },
+    { name: 'apple.txt', isDir: true }, // no size/lastModified/addedAt
+  ]
+
+  it('returns the same array reference when sortKey is falsy (no sort applied yet)', () => {
+    expect(sortFiles(files, null, 'asc')).toBe(files)
+  })
+
+  it('sorts by name case-insensitively via localeCompare, not raw code-point order', () => {
+    // Naive `<` comparison would put 'Cherry.txt' first (capital C sorts
+    // before any lowercase letter by code point) — locale-aware compare
+    // must not.
+    const sorted = sortFiles(files, 'name', 'asc')
+    expect(sorted.map((f) => f.name)).toEqual(['apple.txt', 'banana.txt', 'Cherry.txt'])
+  })
+
+  it('reverses order for desc direction', () => {
+    const sorted = sortFiles(files, 'name', 'desc')
+    expect(sorted.map((f) => f.name)).toEqual(['Cherry.txt', 'banana.txt', 'apple.txt'])
+  })
+
+  it('sorts by size, a missing value first as if smaller than any real size', () => {
+    const sorted = sortFiles(files, 'size', 'asc')
+    expect(sorted.map((f) => f.name)).toEqual(['apple.txt', 'Cherry.txt', 'banana.txt'])
+  })
+
+  it('sorts by lastModified', () => {
+    const sorted = sortFiles(files, 'lastModified', 'asc')
+    expect(sorted.map((f) => f.name)).toEqual(['apple.txt', 'Cherry.txt', 'banana.txt'])
+  })
+
+  it('sorts by addedAt', () => {
+    const sorted = sortFiles(files, 'addedAt', 'asc')
+    expect(sorted.map((f) => f.name)).toEqual(['apple.txt', 'banana.txt', 'Cherry.txt'])
+  })
+
+  it('does not mutate the input array', () => {
+    const original = [...files]
+    sortFiles(files, 'name', 'asc')
+    expect(files).toEqual(original)
   })
 })

@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTrashCan } from '@fortawesome/free-solid-svg-icons'
 import { FileDropZone } from './FileDropZone.jsx'
 import { RemoteFileEntry } from './RemoteFileEntry.jsx'
-import { FileChip } from './FileChip.jsx'
+import { FileTable } from './FileTable.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
 import { t } from '../lib/i18n.js'
 
@@ -54,7 +54,7 @@ export function FileSourceSection({ state, dispatch }) {
 
       {state.files.length > 0 ? (
         <>
-          <div className="chip-list__header">
+          <div className="file-list__header">
             <button
               type="button"
               className="btn btn--sm"
@@ -65,11 +65,7 @@ export function FileSourceSection({ state, dispatch }) {
               {t(lang, 'fileSource.clearAll')}
             </button>
           </div>
-          <ul className="chip-list">
-            {state.files.map((file) => (
-              <FileChip key={file.id} file={file} lang={lang} onRemove={handleRemove} />
-            ))}
-          </ul>
+          <FileTable files={state.files} lang={lang} onRemove={handleRemove} />
         </>
       ) : null}
     </fieldset>

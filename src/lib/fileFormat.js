@@ -32,3 +32,33 @@ export function formatFileDate(timestamp, lang) {
     return ''
   }
 }
+
+/** @typedef {'name'|'size'|'lastModified'|'addedAt'} FileSortKey */
+
+/**
+ * Sort a *copy* of `files` by the given column, for the sortable file
+ * table. Returns the same array reference, unsorted, when `sortKey` is
+ * falsy — the table's initial/unsorted state, which is just insertion
+ * order. A missing size/lastModified/addedAt (e.g. a folder, or a
+ * manually-typed download filename) sorts as if it were smaller than any
+ * real value, rather than throwing off the whole column.
+ * @param {Array<{name: string, size?: number, lastModified?: number, addedAt?: number}>} files
+ * @param {FileSortKey | null} sortKey
+ * @param {'asc'|'desc'} sortDir
+ * @param {string} [lang]
+ */
+export function sortFiles(files, sortKey, sortDir, lang) {
+  if (!sortKey) return files
+  const dir = sortDir === 'desc' ? -1 : 1
+  const locale = lang === 'en' ? 'en' : 'zh-Hant'
+  const compare =
+    sortKey === 'name'
+      ? (a, b) => a.name.localeCompare(b.name, locale)
+      : (a, b) => numericOrFloor(a[sortKey]) - numericOrFloor(b[sortKey])
+  return [...files].sort((a, b) => dir * compare(a, b))
+}
+
+/** @param {unknown} v */
+function numericOrFloor(v) {
+  return typeof v === 'number' && Number.isFinite(v) ? v : -1
+}
