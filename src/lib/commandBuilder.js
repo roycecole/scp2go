@@ -1,7 +1,7 @@
 // @ts-check
 
 /** @typedef {'win'|'nix'} ClientOs */
-/** @typedef {'scp'|'rsync'} Transport */
+/** @typedef {'scp'|'rsync'|'sftp'} Transport */
 /** @typedef {'upload'|'download'} Direction */
 /** @typedef {{ name: string, isDir: boolean }} FileEntry */
 /** @typedef {{ type: 'cmd'|'flag'|'value'|'string'|'operator', text: string }} Token */
@@ -76,6 +76,20 @@ export function quoteNested(str) {
 export function quoteSshConfig(str) {
   if (!str || !/[\s#]/.test(str)) return str
   return `"${str.replace(/"/g, '\\"')}"`
+}
+
+/**
+ * Quote a path used inside an sftp batch-mode line (the body of the heredoc
+ * / here-string built by buildSftpBatchTokens). That text is never touched
+ * by a local or remote shell — it goes straight to sftp's own stdin — so
+ * it follows sftp's own command-line grammar: wrap in double quotes when
+ * whitespace is present, escaping embedded backslashes/quotes.
+ * @param {string} str
+ * @returns {string}
+ */
+export function quoteSftpBatch(str) {
+  if (!str || !/\s/.test(str)) return str
+  return `"${str.replace(/(["\\])/g, '\\$1')}"`
 }
 
 /**
@@ -183,6 +197,55 @@ function pushSshTarget(tokens, { port, key, os, user, host }) {
     push(tokens, 'value', quoteLocal(key, os))
   }
   push(tokens, 'value', `${user}@${host}`)
+}
+
+/**
+ * sftp has no single-line, scp-style invocation covering many files or a
+ * mkdir/chmod side effect — everything is a line in a batch-mode session.
+ * Wraps already-quoted batch lines (see quoteSftpBatch) into one full,
+ * copy-pasteable `sftp -b -` invocation reading those lines from stdin.
+ *
+ * POSIX: a heredoc trails the command. PowerShell has no heredoc syntax for
+ * external commands, so a literal here-string is piped in instead, which
+ * must come *before* the command it feeds — the two branches below aren't
+ * just quoting variants of each other, the token order itself flips.
+ *
+ * A leading `-` on a batch line tells sftp not to abort the rest of the
+ * session if that one command fails — used for mkdir below so re-running
+ * against an already-created directory doesn't stop the upload short.
+ * @param {StepContext} ctx
+ * @param {string[]} lines
+ * @returns {Token[]}
+ */
+function buildSftpBatchTokens(ctx, lines) {
+  const body = [...lines, 'bye'].join('\n')
+  const tokens = []
+
+  const pushInvocation = () => {
+    push(tokens, 'cmd', 'sftp')
+    push(tokens, 'flag', '-b')
+    push(tokens, 'value', '-')
+    push(tokens, 'flag', '-P')
+    push(tokens, 'value', ctx.port)
+    if (ctx.key) {
+      push(tokens, 'flag', '-i')
+      push(tokens, 'value', quoteLocal(ctx.key, ctx.os))
+    }
+    push(tokens, 'value', `${ctx.user}@${ctx.host}`)
+  }
+
+  if (ctx.os === 'win') {
+    tokens.push({ type: 'string', text: `@'\n${body}\n'@` })
+    push(tokens, 'operator', '|')
+    pushInvocation()
+  } else {
+    pushInvocation()
+    push(tokens, 'operator', '<<')
+    push(tokens, 'string', "'SFTP_EOF'")
+    tokens.push({ type: 'string', text: `\n${body}\nSFTP_EOF` })
+  }
+
+  return tokens
 }
 
 /** @param {Token[]} tokens */
@@ -339,6 +402,21 @@ function buildMkdirStep(ctx) {
     return { id: 'localMkdir', label: '建立本機目錄', tokens, plainText: tokensToPlainText(tokens) }
   }
 
+  if (ctx.transport === 'sftp') {
+    // sftp's own mkdir has no -p: it errors on an already-existing
+    // directory, which a plain ssh exec never had to worry about. The
+    // leading `-` tells the batch to shrug that one off and continue —
+    // sftp is also the one transport where a stray `ssh "mkdir -p ..."`
+    // step (what every other branch here uses) may not even be available:
+    // a server locked down to `ForceCommand internal-sftp` accepts sftp's
+    // own commands but rejects arbitrary shell exec outright.
+    const destQuoted = quoteSftpBatch(ctx.dest)
+    const lines = [`-mkdir ${destQuoted}`]
+    if (ctx.optChmod) lines.push(`chmod 700 ${destQuoted}`)
+    const tokens = buildSftpBatchTokens(ctx, lines)
+    return { id: 'mkdir', label: '建立遠端目錄', tokens, plainText: tokensToPlainText(tokens) }
+  }
+
   const tokens = []
   push(tokens, 'cmd', 'ssh')
   pushSshTarget(tokens, ctx)
@@ -350,6 +428,37 @@ function buildMkdirStep(ctx) {
 }
 
 /**
+ * sftp's `put`/`get` take exactly one local/remote path pair per call, so
+ * unlike scp/rsync there is no single invocation covering every selected
+ * file — each becomes its own batch line in one sftp session instead.
+ * `-r` is added per line only for entries that are actually directories:
+ * sftp's recursive flag is inherently per-command, so (unlike scp's single
+ * blanket -r) there's no need to consult optRecursive at all here.
+ * @param {StepContext} ctx
+ * @returns {Step}
+ */
+function buildSftpTransferStep(ctx) {
+  const { os, dest, srcDir, files, direction } = ctx
+
+  const lines = files.map((f) => {
+    const recursive = f.isDir ? '-r ' : ''
+    if (direction === 'download') {
+      const remote = quoteSftpBatch(joinRemote(dest, f.name))
+      const local = quoteSftpBatch(joinLocal(effectiveLocalDir(srcDir), f.name, os))
+      return `get ${recursive}${remote} ${local}`
+    }
+    const local = quoteSftpBatch(joinLocal(srcDir, f.name, os))
+    const remote = quoteSftpBatch(joinRemote(dest, f.name))
+    return `put ${recursive}${local} ${remote}`
+  })
+
+  const tokens = buildSftpBatchTokens(ctx, lines)
+  return direction === 'download'
+    ? { id: 'download', label: '下載檔案', tokens, plainText: tokensToPlainText(tokens) }
+    : { id: 'upload', label: '上傳檔案', tokens, plainText: tokensToPlainText(tokens) }
+}
+
+/**
  * The scp/rsync transfer itself. Direction flips which side gets the
  * `user@host:` prefix and which is the bare trailing argument; the
  * scp-flag/rsync `-e "ssh..."` preamble is otherwise identical either way.
@@ -357,6 +466,8 @@ function buildMkdirStep(ctx) {
  * @returns {Step}
  */
 function buildTransferStep(ctx) {
+  if (ctx.transport === 'sftp') return buildSftpTransferStep(ctx)
+
   const {
     os,
     transport,
@@ -431,12 +542,23 @@ function buildTransferStep(ctx) {
 function buildChmodStep(ctx) {
   if (!(ctx.optChmod && ctx.files.length > 0)) return null
 
+  const plainFiles = ctx.files.filter((f) => !f.isDir)
+  const dirFiles = ctx.files.filter((f) => f.isDir)
+
+  if (ctx.transport === 'sftp') {
+    const lines = [
+      ...plainFiles.map((f) => `chmod 600 ${quoteSftpBatch(joinRemote(ctx.dest, f.name))}`),
+      ...dirFiles.map((f) => `chmod 700 ${quoteSftpBatch(joinRemote(ctx.dest, f.name))}`),
+      `chmod 700 ${quoteSftpBatch(ctx.dest)}`,
+    ]
+    const tokens = buildSftpBatchTokens(ctx, lines)
+    return { id: 'chmod', label: '修正權限（私鑰須 600）', tokens, plainText: tokensToPlainText(tokens) }
+  }
+
   const tokens = []
   push(tokens, 'cmd', 'ssh')
   pushSshTarget(tokens, ctx)
 
-  const plainFiles = ctx.files.filter((f) => !f.isDir)
-  const dirFiles = ctx.files.filter((f) => f.isDir)
   const clauses = []
   if (plainFiles.length) {
     clauses.push(`chmod 600 ${plainFiles.map((f) => quoteNested(joinRemote(ctx.dest, f.name))).join(' ')}`)
@@ -482,7 +604,7 @@ export function buildSteps(state) {
   const ctx = {
     direction: state.direction === 'download' ? 'download' : 'upload',
     os: state.os === 'nix' ? 'nix' : 'win',
-    transport: state.transport === 'rsync' ? 'rsync' : 'scp',
+    transport: state.transport === 'rsync' ? 'rsync' : state.transport === 'sftp' ? 'sftp' : 'scp',
     port: effectivePort(state.port),
     user: effectiveUser(state.user),
     dest: effectiveDest(state.dest),

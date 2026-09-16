@@ -9,6 +9,7 @@ import {
   quoteLocal,
   quoteNested,
   quoteSshConfig,
+  quoteSftpBatch,
   joinLocal,
   joinRemote,
 } from './commandBuilder.js'
@@ -767,5 +768,193 @@ describe('build / restart deployment steps', () => {
     expect(
       buildSteps({ ...baseState, direction: 'download', restartCommand: 'echo done' }).find((s) => s.id === 'restart')
     ).toBeDefined()
+  })
+})
+
+describe('quoteSftpBatch', () => {
+  it('leaves a path without whitespace unquoted', () => {
+    expect(quoteSftpBatch('/var/www/app')).toBe('/var/www/app')
+  })
+  it('wraps a path containing whitespace in double quotes', () => {
+    expect(quoteSftpBatch('/var/www/my app')).toBe(`"/var/www/my app"`)
+  })
+  it('escapes an embedded double quote', () => {
+    expect(quoteSftpBatch('say "hi" now')).toBe(`"say \\"hi\\" now"`)
+  })
+  it('escapes an embedded backslash', () => {
+    expect(quoteSftpBatch('C:\\Program Files\\app')).toBe(`"C:\\\\Program Files\\\\app"`)
+  })
+  it('handles blank/undefined input without throwing', () => {
+    expect(quoteSftpBatch('')).toBe('')
+    expect(quoteSftpBatch(undefined)).toBe(undefined)
+  })
+})
+
+describe('sftp transport', () => {
+  const sftpState = {
+    ...baseState,
+    transport: 'sftp',
+    os: 'nix',
+    key: '',
+    srcDir: '/home/you/uploads',
+    dest: '/var/www/app',
+    files: [{ name: 'app.tar.gz', isDir: false }],
+    optMkdir: false,
+    optChmod: false,
+  }
+
+  it('upload: one put line per file, wrapped in an sftp -b - heredoc (POSIX)', () => {
+    const step = stepsById(buildSteps(sftpState)).upload
+    expect(step.plainText).toBe(
+      "sftp -b - -P 22 ubuntu@161.33.35.40 << 'SFTP_EOF'\n" +
+        'put /home/you/uploads/app.tar.gz /var/www/app/app.tar.gz\n' +
+        'bye\n' +
+        'SFTP_EOF'
+    )
+  })
+
+  it('upload: PowerShell uses a piped here-string instead of a heredoc', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        os: 'win',
+        key: 'C:\\Users\\you\\.ssh\\id_ed25519',
+        srcDir: 'C:\\Users\\you\\uploads',
+      })
+    ).upload
+    expect(step.plainText).toBe(
+      "@'\n" +
+        'put C:\\Users\\you\\uploads\\app.tar.gz /var/www/app/app.tar.gz\n' +
+        'bye\n' +
+        "'@ | sftp -b - -P 22 -i C:\\Users\\you\\.ssh\\id_ed25519 ubuntu@161.33.35.40"
+    )
+  })
+
+  it('uses -P (capital) for the port, never ssh-style lowercase -p', () => {
+    const step = stepsById(buildSteps({ ...sftpState, port: '2222' })).upload
+    expect(step.plainText).toContain('-b - -P 2222 ')
+    expect(step.plainText).not.toMatch(/[^-]-p\b/)
+  })
+
+  it('one put/get line per file, in order', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        files: [
+          { name: 'a.txt', isDir: false },
+          { name: 'b.txt', isDir: false },
+        ],
+      })
+    ).upload
+    const lines = step.plainText.split('\n')
+    expect(lines).toContain('put /home/you/uploads/a.txt /var/www/app/a.txt')
+    expect(lines).toContain('put /home/you/uploads/b.txt /var/www/app/b.txt')
+  })
+
+  it('adds -r only for entries that are actually directories', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        files: [
+          { name: 'assets', isDir: true },
+          { name: 'readme.txt', isDir: false },
+        ],
+      })
+    ).upload
+    expect(step.plainText).toContain('put -r /home/you/uploads/assets /var/www/app/assets')
+    expect(step.plainText).toContain('put /home/you/uploads/readme.txt /var/www/app/readme.txt')
+  })
+
+  it('quotes a filename containing whitespace on both sides of the line', () => {
+    const step = stepsById(buildSteps({ ...sftpState, files: [{ name: 'my report.pdf', isDir: false }] })).upload
+    expect(step.plainText).toContain('put "/home/you/uploads/my report.pdf" "/var/www/app/my report.pdf"')
+  })
+
+  it('download: get lines join the remote source and local destination per file', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        direction: 'download',
+        srcDir: '/home/you/downloads',
+        files: [{ name: 'remote-file.txt', isDir: false }],
+      })
+    ).download
+    expect(step.plainText).toContain('get /var/www/app/remote-file.txt /home/you/downloads/remote-file.txt')
+  })
+
+  it('download: blank local destination falls back to .', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        direction: 'download',
+        srcDir: '',
+        files: [{ name: 'remote-file.txt', isDir: false }],
+      })
+    ).download
+    expect(step.plainText).toContain('get /var/www/app/remote-file.txt ./remote-file.txt')
+  })
+
+  it('mkdir: uses a leading - so an already-existing directory does not abort the batch', () => {
+    const step = stepsById(buildSteps({ ...sftpState, optMkdir: true })).mkdir
+    expect(step.plainText).toBe(
+      "sftp -b - -P 22 ubuntu@161.33.35.40 << 'SFTP_EOF'\n" + '-mkdir /var/www/app\n' + 'bye\n' + 'SFTP_EOF'
+    )
+  })
+
+  it('mkdir: chains a chmod 700 on the new directory when optChmod is also on', () => {
+    const step = stepsById(buildSteps({ ...sftpState, optMkdir: true, optChmod: true })).mkdir
+    const lines = step.plainText.split('\n')
+    expect(lines).toContain('-mkdir /var/www/app')
+    expect(lines).toContain('chmod 700 /var/www/app')
+  })
+
+  it('chmod: 600 for files, 700 for directories and the destination itself, one batch session', () => {
+    const step = stepsById(
+      buildSteps({
+        ...sftpState,
+        optChmod: true,
+        files: [
+          { name: 'app.tar.gz', isDir: false },
+          { name: 'uploads', isDir: true },
+        ],
+      })
+    ).chmod
+    const lines = step.plainText.split('\n')
+    expect(lines).toContain('chmod 600 /var/www/app/app.tar.gz')
+    expect(lines).toContain('chmod 700 /var/www/app/uploads')
+    expect(lines).toContain('chmod 700 /var/www/app')
+  })
+
+  it('step order matches scp/rsync: build, mkdir, upload, chmod, restart', () => {
+    const steps = buildSteps({
+      ...sftpState,
+      optMkdir: true,
+      optChmod: true,
+      buildCommand: 'npm run build',
+      restartCommand: 'pm2 restart app',
+    })
+    expect(steps.map((s) => s.id)).toEqual(['build', 'mkdir', 'upload', 'chmod', 'restart'])
+  })
+
+  it('rsync-only flags have no bearing on the sftp batch', () => {
+    const step = stepsById(
+      buildSteps({ ...sftpState, optPartial: true, optDelete: true, optProgress: true, optDryRun: true, optChecksum: true })
+    ).upload
+    expect(step.plainText).not.toMatch(/--partial|--delete|--progress|--dry-run|--checksum/)
+  })
+
+  it('survives an unknown transport value by defaulting to scp, not silently becoming sftp', () => {
+    const step = stepsById(buildSteps({ ...sftpState, transport: 'bogus' })).upload
+    expect(step.plainText.startsWith('scp ')).toBe(true)
+  })
+
+  it('plugs into buildCopyAllText / buildScriptFile without losing the embedded newlines', () => {
+    const steps = buildSteps({ ...sftpState, optMkdir: true })
+    const text = buildCopyAllText(steps)
+    expect(text).toContain('# 建立遠端目錄\nsftp -b -')
+    expect(text).toContain('# 上傳檔案\nsftp -b -')
+    const script = buildScriptFile(steps, 'nix')
+    expect(script.startsWith('#!/usr/bin/env bash\nset -euo pipefail\n\n')).toBe(true)
+    expect(script).toContain("<< 'SFTP_EOF'")
   })
 })

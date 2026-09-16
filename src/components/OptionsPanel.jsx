@@ -7,6 +7,7 @@ import { t } from '../lib/i18n.js'
 const TRANSPORT_OPTIONS = [
   { value: 'scp', label: 'scp' },
   { value: 'rsync', label: 'rsync' },
+  { value: 'sftp', label: 'sftp' },
 ]
 
 const OS_OPTIONS = (lang) => [

@@ -42,6 +42,11 @@ describe('loadState / saveState', () => {
     expect(loadState().direction).toBe('upload')
   })
 
+  it('round-trips the sftp transport rather than falling back to scp', () => {
+    localStorage.setItem('scp2go:state', JSON.stringify({ ...initialState, transport: 'sftp' }))
+    expect(loadState().transport).toBe('sftp')
+  })
+
   it('round-trips file size/lastModified metadata when present', () => {
     const state = { ...initialState, files: [{ id: 'f:a.txt', name: 'a.txt', isDir: false, size: 2048, lastModified: 1757894400000 }] }
     saveState(state)

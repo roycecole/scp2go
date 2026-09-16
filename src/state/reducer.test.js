@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { reducer, initialState } from './reducer.js'
 
+describe('SET_TRANSPORT', () => {
+  it('accepts scp, rsync, and sftp', () => {
+    expect(reducer(initialState, { type: 'SET_TRANSPORT', transport: 'rsync' }).transport).toBe('rsync')
+    expect(reducer(initialState, { type: 'SET_TRANSPORT', transport: 'sftp' }).transport).toBe('sftp')
+    expect(reducer(initialState, { type: 'SET_TRANSPORT', transport: 'scp' }).transport).toBe('scp')
+  })
+
+  it('falls back to scp for an unrecognized value, never silently landing on sftp', () => {
+    expect(reducer(initialState, { type: 'SET_TRANSPORT', transport: 'bogus' }).transport).toBe('scp')
+  })
+})
+
 describe('ADD_FILES', () => {
   it('dedupes by name+isDir', () => {
     let state = reducer(initialState, { type: 'ADD_FILES', files: [{ name: 'a.txt', isDir: false }] })

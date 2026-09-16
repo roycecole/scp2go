@@ -49,7 +49,7 @@ export const PROFILE_FIELDS = /** @type {const} */ ([
  * @property {string} dest
  * @property {FileEntry[]} files
  * @property {'win'|'nix'} os
- * @property {'scp'|'rsync'} transport
+ * @property {'scp'|'rsync'|'sftp'} transport
  * @property {Direction} direction
  * @property {boolean} optMkdir
  * @property {boolean} optRecursive
@@ -147,7 +147,10 @@ export function reducer(state, action) {
       return { ...state, os: action.os === 'nix' ? 'nix' : 'win' }
 
     case 'SET_TRANSPORT':
-      return { ...state, transport: action.transport === 'rsync' ? 'rsync' : 'scp' }
+      return {
+        ...state,
+        transport: action.transport === 'rsync' ? 'rsync' : action.transport === 'sftp' ? 'sftp' : 'scp',
+      }
 
     case 'SET_DIRECTION': {
       const direction = DIRECTIONS.has(action.direction) ? action.direction : 'upload'

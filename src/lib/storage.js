@@ -4,7 +4,7 @@ import { initialState, PROFILE_FIELDS } from '../state/reducer.js'
 const STORAGE_KEY = 'scp2go:state'
 const THEMES = new Set(['system', 'light', 'dark'])
 const OS_VALUES = new Set(['win', 'nix'])
-const TRANSPORTS = new Set(['scp', 'rsync'])
+const TRANSPORTS = new Set(['scp', 'rsync', 'sftp'])
 const LANGS = new Set(['zh-Hant', 'en'])
 const DIRECTIONS = new Set(['upload', 'download'])
 
