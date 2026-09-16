@@ -1060,10 +1060,10 @@ img {
   z-index: 70;
   display: flex;
   flex-direction: column;
-  padding: 1rem 1.25rem 2rem;
+  padding: 0;
   background: var(--color-surface);
   border-left: 1px solid var(--color-border);
-  overflow-y: auto;
+  overflow: hidden;
   transform: translateX(100%);
   visibility: hidden;
   transition:
@@ -1077,11 +1077,64 @@ img {
   box-shadow: -12px 0 32px rgba(0, 0, 0, 0.25);
 }
 
+/* Everything inside a closed drawer is invisible anyway — pausing (not
+   stopping) its animations saves CPU while preserving phase. */
+.viz-drawer:not(.viz-drawer--open) * {
+  animation-play-state: paused;
+}
+
+.viz-drawer__resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.viz-drawer__resizer::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 4px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+}
+
+.viz-drawer__resizer:hover::after,
+.viz-drawer__resizer:focus-visible::after,
+.viz-drawer__resizer--active::after {
+  background: var(--color-primary);
+}
+
+.viz-drawer__resizer:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.viz-drawer--resizing {
+  user-select: none;
+}
+
 .viz-drawer__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  padding: 1rem 1.25rem 0;
+}
+
+.viz-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 1.25rem 2rem;
 }
 
 .viz-drawer__title {
@@ -1267,10 +1320,309 @@ img {
   color: var(--color-text-muted);
 }
 
+/* --- SSH handshake ladder --- */
+
+.viz-hs {
+  margin-top: 1.25rem;
+}
+
+.viz-hs__summary {
+  cursor: pointer;
+}
+
+.viz-hs__summary .viz-steps__title {
+  display: inline;
+  margin: 0;
+}
+
+.viz-hs__note {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.viz-hs__diagram {
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  /* clip, not hidden: overflow:hidden would make this box a scroll
+     container, and the sticky heads would pin to it (which never scrolls)
+     instead of the drawer body's scrollport. */
+  overflow: clip;
+}
+
+.viz-hs__heads {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.viz-hs__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  max-width: 48%;
+}
+
+.viz-hs__head svg {
+  color: var(--color-primary);
+}
+
+.viz-hs__head span {
+  overflow-wrap: anywhere;
+}
+
+.viz-hs__rows {
+  /* Keep in lockstep with HS_STEPS.length (16) in TransferVisualizer.jsx:
+     cycle = 16 × slot, and every keyframe slot window below is 100/16 = 6.25%. */
+  --hs-slot: 1.5s;
+  --hs-cycle: 24s;
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0.6rem 0 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/* lifelines */
+.viz-hs__rows::before,
+.viz-hs__rows::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed var(--color-border);
+}
+
+.viz-hs__rows::before {
+  left: 0.9rem;
+}
+
+.viz-hs__rows::after {
+  right: 0.9rem;
+}
+
+.viz-hs__row {
+  position: relative;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* message rows: borderless, label above a lifeline-to-lifeline track */
+.viz-hs__row--c2s,
+.viz-hs__row--s2c,
+.viz-hs__row--bi {
+  margin: 0 0.9rem;
+  padding: 0 0.15rem;
+}
+
+/* local-action rows: dashed box hugging its lifeline */
+.viz-hs__row--client,
+.viz-hs__row--server {
+  padding: 0.4rem 0.55rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  animation: viz-hs-box var(--hs-cycle) linear infinite;
+  animation-delay: calc(var(--i, 0) * var(--hs-slot));
+}
+
+.viz-hs__row--client {
+  margin: 0 3rem 0 0.9rem;
+}
+
+.viz-hs__row--server {
+  margin: 0 0.9rem 0 3rem;
+}
+
+.viz-hs__labelline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--color-text);
+  animation: viz-hs-ink var(--hs-cycle) linear infinite;
+  animation-delay: calc(var(--i, 0) * var(--hs-slot));
+}
+
+.viz-hs__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.viz-hs__glyph {
+  width: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--color-text-muted);
+}
+
+.viz-hs__label {
+  overflow-wrap: anywhere;
+}
+
+.viz-hs__track {
+  position: relative;
+  height: 2px;
+  margin-top: 0.4rem;
+  background: var(--color-border);
+  animation: viz-hs-trackon var(--hs-cycle) linear infinite;
+  animation-delay: calc(var(--i, 0) * var(--hs-slot));
+}
+
+/* static CSS-triangle arrowheads — direction stays readable without motion */
+.viz-hs__track::before,
+.viz-hs__track::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  display: none;
+}
+
+.viz-hs__row--c2s .viz-hs__track::after,
+.viz-hs__row--bi .viz-hs__track::after {
+  display: block;
+  right: -1px;
+  border-left: 7px solid var(--color-text-muted);
+}
+
+.viz-hs__row--s2c .viz-hs__track::before,
+.viz-hs__row--bi .viz-hs__track::before {
+  display: block;
+  left: -1px;
+  border-right: 7px solid var(--color-text-muted);
+}
+
+.viz-hs__dot {
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: -0.25rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  /* base-state trick: invisible before its first slot, outside its slot,
+     and under reduced motion */
+  opacity: 0;
+  animation: viz-hs-dot-ltr var(--hs-cycle) linear infinite;
+  animation-delay: calc(var(--i, 0) * var(--hs-slot));
+}
+
+.viz-hs__dot--rtl {
+  /* Never animation-direction: reverse — it would mirror the whole cycle
+     and move the visible window to the wrong end. */
+  animation-name: viz-hs-dot-rtl;
+}
+
+/* Slot window = [0%, 6.25%] of each element's own delayed timeline; the
+   6.25→6.26 snap-off matches the viz-step-pulse idiom. All animations share
+   one duration, so slots tile with zero drift and the loop seam is free. */
+@keyframes viz-hs-ink {
+  0%,
+  6.25% {
+    color: var(--color-primary);
+  }
+  6.26%,
+  100% {
+    color: var(--color-text);
+  }
+}
+
+@keyframes viz-hs-box {
+  0%,
+  6.25% {
+    border-color: var(--color-primary);
+    background: var(--color-surface-alt);
+  }
+  6.26%,
+  100% {
+    border-color: var(--color-border);
+    background: var(--color-bg);
+  }
+}
+
+@keyframes viz-hs-trackon {
+  0%,
+  6.25% {
+    background: var(--color-primary);
+  }
+  6.26%,
+  100% {
+    background: var(--color-border);
+  }
+}
+
+/* opacity-only frames omit `left`, so `left` interpolates linearly across
+   the whole slot while the dot fades at the edges */
+@keyframes viz-hs-dot-ltr {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  0.5% {
+    opacity: 1;
+  }
+  5.75% {
+    opacity: 1;
+  }
+  6.25%,
+  100% {
+    left: calc(100% - 0.5rem);
+    opacity: 0;
+  }
+}
+
+@keyframes viz-hs-dot-rtl {
+  0% {
+    left: calc(100% - 0.5rem);
+    opacity: 0;
+  }
+  0.5% {
+    opacity: 1;
+  }
+  5.75% {
+    opacity: 1;
+  }
+  6.25%,
+  100% {
+    left: 0;
+    opacity: 0;
+  }
+}
+
 @media (max-width: 640px) {
   .viz-drawer {
-    width: 100%;
+    /* beats the inline resize width — mobile always full-screen */
+    width: 100% !important;
     border-left: none;
+  }
+
+  .viz-drawer__resizer {
+    display: none;
   }
 }
 
