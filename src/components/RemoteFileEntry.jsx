@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { t } from '../lib/i18n.js'
 
 export function RemoteFileEntry({ lang, onAddFiles }) {
@@ -18,8 +19,9 @@ export function RemoteFileEntry({ lang, onAddFiles }) {
   return (
     <div className="remote-files">
       <div className="remote-files__row">
-        <input
-          type="text"
+        <ClearableInput
+          lang={lang}
+          onClear={() => setName('')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {

@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ToggleSwitch } from './primitives/ToggleSwitch.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { AnchorLink } from './AnchorLink.jsx'
 import { isValidBwLimit } from '../lib/validators.js'
 import { t } from '../lib/i18n.js'
@@ -35,9 +36,11 @@ export function OptionsPanel({ state, dispatch }) {
           <label className="field__label" htmlFor="dest">
             {t(lang, isDownload ? 'options.dest.label.download' : 'options.dest.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={() => dispatch({ type: 'SET_FIELD', field: 'dest', value: '' })}
+            fieldLabel={t(lang, isDownload ? 'options.dest.label.download' : 'options.dest.label')}
             id="dest"
-            type="text"
             placeholder="~/"
             value={state.dest}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'dest', value: e.target.value })}
@@ -182,9 +185,11 @@ export function OptionsPanel({ state, dispatch }) {
             <label className="field__label" htmlFor="excludePatterns">
               {t(lang, 'options.excludePatterns.label')}
             </label>
-            <input
+            <ClearableInput
+              lang={lang}
+              onClear={() => dispatch({ type: 'SET_FIELD', field: 'excludePatterns', value: '' })}
+              fieldLabel={t(lang, 'options.excludePatterns.label')}
               id="excludePatterns"
-              type="text"
               placeholder={t(lang, 'options.excludePatterns.placeholder')}
               value={state.excludePatterns}
               onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'excludePatterns', value: e.target.value })}
@@ -195,9 +200,11 @@ export function OptionsPanel({ state, dispatch }) {
             <label className="field__label" htmlFor="bwLimit">
               {t(lang, 'options.bwLimit.label')}
             </label>
-            <input
+            <ClearableInput
+              lang={lang}
+              onClear={() => dispatch({ type: 'SET_FIELD', field: 'bwLimit', value: '' })}
+              fieldLabel={t(lang, 'options.bwLimit.label')}
               id="bwLimit"
-              type="text"
               placeholder={t(lang, 'options.bwLimit.placeholder')}
               value={state.bwLimit}
               onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'bwLimit', value: e.target.value })}
@@ -214,9 +221,11 @@ export function OptionsPanel({ state, dispatch }) {
             <label className="field__label" htmlFor="linkDest">
               {t(lang, 'options.linkDest.label')}
             </label>
-            <input
+            <ClearableInput
+              lang={lang}
+              onClear={() => dispatch({ type: 'SET_FIELD', field: 'linkDest', value: '' })}
+              fieldLabel={t(lang, 'options.linkDest.label')}
               id="linkDest"
-              type="text"
               placeholder={t(lang, 'options.linkDest.placeholder')}
               value={state.linkDest}
               onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'linkDest', value: e.target.value })}

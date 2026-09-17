@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCirclePlay,
@@ -82,10 +82,49 @@ export function TransferVisualizer({ state }) {
   const [open, setOpen] = useState(false)
   const [width, setWidth] = useState(null)
   const [dragging, setDragging] = useState(false)
+  const [toggleTop, setToggleTop] = useState(null)
   const dragRef = useRef(null)
   const drawerRef = useRef(null)
+  const toggleRef = useRef(null)
+  const toggleDragRef = useRef(null)
   const lang = state.lang
   const steps = useMemo(() => buildSteps(state), [state])
+
+  // Click on blank page space (outside the drawer and any control) closes
+  // the drawer; clicks on form controls stay live so the demo keeps
+  // mirroring changes while open. A click whose press and release land on
+  // different elements is dispatched on their common ancestor, so a
+  // resize-drag or a text selection that starts inside the drawer would
+  // read as an "outside" click — dismissal therefore requires that the
+  // press also STARTED on blank space, and never fires mid-selection.
+  useEffect(() => {
+    if (!open) return undefined
+    const isBlankSpace = (target) => {
+      if (!(target instanceof Element)) return false
+      if (drawerRef.current?.contains(target)) return false
+      if (toggleRef.current?.contains(target)) return false
+      if (target.closest('input, button, select, textarea, label, a, summary, [tabindex]')) return false
+      return true
+    }
+    let pressedOnBlank = false
+    const onDocPointerDown = (e) => {
+      pressedOnBlank = isBlankSpace(e.target)
+    }
+    const onDocClick = (e) => {
+      const eligible = pressedOnBlank && isBlankSpace(e.target)
+      pressedOnBlank = false
+      if (!eligible) return
+      const selection = window.getSelection?.()
+      if (selection && !selection.isCollapsed) return
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDocPointerDown)
+    document.addEventListener('click', onDocClick)
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointerDown)
+      document.removeEventListener('click', onDocClick)
+    }
+  }, [open])
 
   const host = (state.host || '').trim()
   const jump = (state.jumpHost || '').trim()
@@ -129,9 +168,58 @@ export function TransferVisualizer({ state }) {
     <>
       <button
         type="button"
+        ref={toggleRef}
         className="viz-toggle"
+        style={toggleTop != null ? { top: `clamp(28px, ${Math.round(toggleTop)}px, calc(100vh - 28px))` } : undefined}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => {
+          // A pointer drag ends in a click on the same button — swallow it
+          // so repositioning never also toggles the drawer. Keyboard/AT
+          // activations have e.detail === 0 and are never suppressed.
+          if (e.detail > 0 && toggleDragRef.current?.moved) {
+            toggleDragRef.current = null
+            return
+          }
+          toggleDragRef.current = null
+          setOpen((o) => !o)
+        }}
+        onPointerDown={(e) => {
+          if (!e.isPrimary) return
+          if (e.pointerType === 'mouse' && e.button !== 0) return
+          toggleDragRef.current = {
+            pointerId: e.pointerId,
+            startY: e.clientY,
+            startTop: toggleRef.current.getBoundingClientRect().top + toggleRef.current.offsetHeight / 2,
+            moved: false,
+          }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }}
+        onPointerMove={(e) => {
+          const d = toggleDragRef.current
+          if (!d || e.pointerId !== d.pointerId) return
+          const dy = e.clientY - d.startY
+          if (!d.moved && Math.abs(dy) < 5) return
+          d.moved = true
+          const half = toggleRef.current.offsetHeight / 2
+          const y = Math.min(Math.max(d.startTop + dy, half + 8), window.innerHeight - half - 8)
+          setToggleTop(y)
+        }}
+        onPointerUp={() => {
+          // A touch/pen drag ends with no trailing click, which would leave
+          // a stale moved-flag that swallows the next activation. The click
+          // that DOES follow a mouse release fires synchronously before
+          // this timeout, so suppression still works there.
+          const d = toggleDragRef.current
+          if (d) {
+            setTimeout(() => {
+              if (toggleDragRef.current === d) toggleDragRef.current = null
+            }, 0)
+          }
+        }}
+        onPointerCancel={() => {
+          // No click follows a cancelled pointer, so the drag record can go.
+          toggleDragRef.current = null
+        }}
         title={t(lang, 'viz.open')}
         aria-label={t(lang, 'viz.open')}
       >

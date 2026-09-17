@@ -1,9 +1,11 @@
 import { AnchorLink } from './AnchorLink.jsx'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { isValidHost, isValidPort, isValidUser, isValidJumpHost } from '../lib/validators.js'
 import { t } from '../lib/i18n.js'
 
 export function ConnectionForm({ state, dispatch }) {
   const setField = (field) => (e) => dispatch({ type: 'SET_FIELD', field, value: e.target.value })
+  const clearField = (field) => () => dispatch({ type: 'SET_FIELD', field, value: '' })
   const lang = state.lang
 
   const hostOk = isValidHost(state.host)
@@ -22,9 +24,11 @@ export function ConnectionForm({ state, dispatch }) {
           <label className="field__label" htmlFor="host">
             {t(lang, 'connection.host.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={clearField('host')}
+            fieldLabel={t(lang, 'connection.host.label')}
             id="host"
-            type="text"
             placeholder={t(lang, 'connection.host.placeholder')}
             value={state.host}
             onChange={setField('host')}
@@ -41,9 +45,11 @@ export function ConnectionForm({ state, dispatch }) {
           <label className="field__label" htmlFor="port">
             {t(lang, 'connection.port.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={clearField('port')}
+            fieldLabel={t(lang, 'connection.port.label')}
             id="port"
-            type="text"
             inputMode="numeric"
             placeholder="22"
             value={state.port}
@@ -61,9 +67,11 @@ export function ConnectionForm({ state, dispatch }) {
           <label className="field__label" htmlFor="user">
             {t(lang, 'connection.user.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={clearField('user')}
+            fieldLabel={t(lang, 'connection.user.label')}
             id="user"
-            type="text"
             placeholder="ubuntu"
             value={state.user}
             onChange={setField('user')}
@@ -80,9 +88,11 @@ export function ConnectionForm({ state, dispatch }) {
           <label className="field__label" htmlFor="key">
             {t(lang, 'connection.key.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={clearField('key')}
+            fieldLabel={t(lang, 'connection.key.label')}
             id="key"
-            type="text"
             placeholder={t(lang, 'connection.key.placeholder')}
             value={state.key}
             onChange={setField('key')}
@@ -96,9 +106,11 @@ export function ConnectionForm({ state, dispatch }) {
           <label className="field__label" htmlFor="jumpHost">
             {t(lang, 'connection.jumpHost.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={clearField('jumpHost')}
+            fieldLabel={t(lang, 'connection.jumpHost.label')}
             id="jumpHost"
-            type="text"
             placeholder={t(lang, 'connection.jumpHost.placeholder')}
             value={state.jumpHost}
             onChange={setField('jumpHost')}

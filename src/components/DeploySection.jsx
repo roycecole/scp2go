@@ -1,4 +1,5 @@
 import { AnchorLink } from './AnchorLink.jsx'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { t } from '../lib/i18n.js'
 
 const BUILD_PRESETS = ['npm run build', 'npm ci && npm run build', 'docker build -t myapp .', 'docker compose build']
@@ -47,14 +48,16 @@ export function DeploySection({ state, dispatch }) {
       </legend>
       <p className="panel__hint">{t(lang, 'deploy.hint')}</p>
 
-      <div className="field-row">
+      <div className="deploy-fields">
         <div className="field">
           <label className="field__label" htmlFor="buildCommand">
             {t(lang, 'deploy.build.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={() => dispatch({ type: 'SET_FIELD', field: 'buildCommand', value: '' })}
+            fieldLabel={t(lang, 'deploy.build.label')}
             id="buildCommand"
-            type="text"
             placeholder={t(lang, 'deploy.build.placeholder')}
             value={state.buildCommand}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'buildCommand', value: e.target.value })}
@@ -70,9 +73,11 @@ export function DeploySection({ state, dispatch }) {
           <label className="field__label" htmlFor="restartCommand">
             {t(lang, 'deploy.restart.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={() => dispatch({ type: 'SET_FIELD', field: 'restartCommand', value: '' })}
+            fieldLabel={t(lang, 'deploy.restart.label')}
             id="restartCommand"
-            type="text"
             placeholder={t(lang, 'deploy.restart.placeholder')}
             value={state.restartCommand}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'restartCommand', value: e.target.value })}
@@ -88,9 +93,11 @@ export function DeploySection({ state, dispatch }) {
           <label className="field__label" htmlFor="healthCheckCommand">
             {t(lang, 'deploy.healthCheck.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={() => dispatch({ type: 'SET_FIELD', field: 'healthCheckCommand', value: '' })}
+            fieldLabel={t(lang, 'deploy.healthCheck.label')}
             id="healthCheckCommand"
-            type="text"
             placeholder={t(lang, 'deploy.healthCheck.placeholder')}
             value={state.healthCheckCommand}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'healthCheckCommand', value: e.target.value })}

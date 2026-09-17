@@ -6,6 +6,7 @@ import { buildWinScpIni, buildFileZillaXml } from '../lib/guiClients.js'
 import { copyText } from '../lib/clipboard.js'
 import { downloadTextFile } from '../lib/download.js'
 import { AnchorLink } from './AnchorLink.jsx'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { t } from '../lib/i18n.js'
 
 export function SshConfigBlock({ state, dispatch }) {
@@ -51,9 +52,11 @@ export function SshConfigBlock({ state, dispatch }) {
           <label className="field__label" htmlFor="configAlias">
             {t(lang, 'sshConfig.alias.label')}
           </label>
-          <input
+          <ClearableInput
+            lang={lang}
+            onClear={() => dispatch({ type: 'SET_FIELD', field: 'configAlias', value: '' })}
+            fieldLabel={t(lang, 'sshConfig.alias.label')}
             id="configAlias"
-            type="text"
             placeholder={t(lang, 'sshConfig.alias.placeholder')}
             value={state.configAlias}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'configAlias', value: e.target.value })}

@@ -19,6 +19,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { formatFileSize, formatFileDate, sortFiles, getFileCategory, filterFiles } from '../lib/fileFormat.js'
 import { isSensitiveFilename } from '../lib/sensitiveFiles.js'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { t } from '../lib/i18n.js'
 
 const COLUMNS = [
@@ -65,8 +66,9 @@ export function FileTable({ files, lang, onRemove }) {
     <>
       <div className="file-table__filter">
         <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
-        <input
-          type="text"
+        <ClearableInput
+          lang={lang}
+          onClear={() => setQuery('')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t(lang, 'fileTable.filter.placeholder')}

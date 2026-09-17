@@ -238,7 +238,8 @@ img {
 
 .field input[type='text'],
 .field input[type='number'],
-.file-table__filter input {
+.file-table__filter input,
+.remote-files__row input[type='text'] {
   width: 100%;
   padding: 0.5rem 0.625rem;
   border: 1px solid var(--color-border);
@@ -251,6 +252,56 @@ img {
 
 .field input:focus-visible {
   border-color: var(--color-primary);
+}
+
+/* Clearable input wrapper */
+
+.clearable {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.clearable input[type='text'] {
+  width: 100%;
+  padding-right: 2.1rem;
+}
+
+.clearable__btn {
+  position: absolute;
+  right: 0.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.clearable__btn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.remote-files__row .clearable,
+.profile-bar .clearable,
+.file-table__filter .clearable {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Deploy extras: one full-width row per command field, so long commands
+   stay readable */
+.deploy-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 /* Buttons */
@@ -1045,6 +1096,8 @@ img {
   font-size: 1.15rem;
   cursor: pointer;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+  /* draggable along the edge — without this, touch drags become scrolls */
+  touch-action: none;
 }
 
 .viz-toggle:hover {

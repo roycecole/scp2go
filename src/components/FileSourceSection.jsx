@@ -5,6 +5,7 @@ import { FileDropZone } from './FileDropZone.jsx'
 import { RemoteFileEntry } from './RemoteFileEntry.jsx'
 import { FileTable } from './FileTable.jsx'
 import { SegmentedControl } from './primitives/SegmentedControl.jsx'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { AnchorLink } from './AnchorLink.jsx'
 import { t } from '../lib/i18n.js'
 
@@ -59,9 +60,11 @@ export function FileSourceSection({ state, dispatch }) {
         <label className="field__label" htmlFor="srcDir">
           {t(lang, isDownload ? 'fileSource.srcDir.label.download' : 'fileSource.srcDir.label')}
         </label>
-        <input
+        <ClearableInput
+          lang={lang}
+          onClear={() => dispatch({ type: 'SET_FIELD', field: 'srcDir', value: '' })}
+          fieldLabel={t(lang, isDownload ? 'fileSource.srcDir.label.download' : 'fileSource.srcDir.label')}
           id="srcDir"
-          type="text"
           placeholder={t(lang, 'fileSource.srcDir.placeholder')}
           value={state.srcDir}
           onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'srcDir', value: e.target.value })}

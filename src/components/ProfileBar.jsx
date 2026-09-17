@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFileArrowDown, faFileArrowUp } from '@fortawesome/free-solid-svg-icons'
 import { sanitizeProfiles } from '../lib/storage.js'
 import { downloadTextFile } from '../lib/download.js'
+import { ClearableInput } from './primitives/ClearableInput.jsx'
 import { t } from '../lib/i18n.js'
 
 export function ProfileBar({ state, dispatch }) {
@@ -73,8 +74,10 @@ export function ProfileBar({ state, dispatch }) {
           {t(lang, 'profiles.delete')}
         </button>
       ) : null}
-      <input
-        type="text"
+      <ClearableInput
+        lang={lang}
+        onClear={() => setNewName('')}
+        fieldLabel={t(lang, 'profiles.namePlaceholder')}
         className="profile-bar__name"
         placeholder={t(lang, 'profiles.namePlaceholder')}
         value={newName}
